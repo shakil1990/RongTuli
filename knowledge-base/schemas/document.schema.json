@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Knowledge base document metadata",
+  "type": "object",
+  "required": ["id", "title", "category", "language", "updated"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "title": { "type": "string", "minLength": 1 },
+    "category": { "enum": ["faq", "policy", "product", "guide"] },
+    "language": { "type": "string", "examples": ["en", "bn"] },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "updated": { "type": "string", "format": "date" },
+    "audience": { "enum": ["viewer", "admin", "all"], "default": "all" }
+  },
+  "additionalProperties": false
+}

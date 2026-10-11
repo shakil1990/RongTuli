@@ -1,0 +1,4 @@
+strategy: markdown-heading
+max_tokens: 500
+overlap_tokens: 50
+keep_headings_in_chunk: true

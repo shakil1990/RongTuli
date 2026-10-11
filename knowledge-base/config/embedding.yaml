@@ -1,0 +1,5 @@
+# Provider and model are placeholders; choose when implementing.
+provider: TBD
+model: TBD
+dimensions: TBD
+batch_size: 64
