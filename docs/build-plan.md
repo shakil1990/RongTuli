@@ -12,13 +12,13 @@ Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs you
 |---|---|---|---|
 | 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. Accounts and Google OAuth are 🔒 (see below). |
 | 1 | Backend skeleton (.NET API) | ✅ | Code done: EF Core + Npgsql, entities, `InitialCreate` migration, seed categories, DB-checking `/health`. Left: env-var config for Jwt/Google/Cloudinary/Admin (added by Steps 3 and 5). Deployed to Render (https://rongtuliapi.onrender.com), `/health` healthy against Neon. |
-| 2 | Frontend skeleton (React) | ✅ | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Deployed to Vercel at https://rong-tuli-peach.vercel.app. Live site shows the API health status (`VITE_API_URL` set to the Render URL). Deferred: category menu (needs Step 4 API). |
+| 2 | Frontend skeleton (React) | ✅ | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Deployed to Vercel at https://rong-tuli-peach.vercel.app. Live site shows the API health status (`VITE_API_URL` set to the Render URL). Category menu and cart count added in Steps 6 and 8. |
 | 3 | Google SSO and roles | ⬜ | Needs Google OAuth client 🔒 |
 | 4 | Catalog API | ✅ | Public and admin endpoints with 24 new integration tests (36 total passing); public endpoints verified against Neon. Admin endpoints answer 401 until Step 3 adds JWT sign-in. |
 | 5 | Product image upload | ⬜ | Needs Cloudinary account 🔒 |
-| 6 | Storefront UI | ⬜ | |
+| 6 | Storefront UI | ✅ | Design tokens with dark mode, category menu, grid, sort and paging in the URL, product page with gallery and size picker. Product photos are placeholders until Step 5. |
 | 7 | Admin panel UI | ⬜ | |
-| 8 | Cart | ⬜ | |
+| 8 | Cart | ✅ | localStorage cart behind `useCart`, header badge, cart page, and `POST /api/cart/quote` re-pricing with unavailable/price-changed/size flags. 34 web unit tests, 17 new API tests. |
 | 9 | Checkout and orders (COD) | ⬜ | |
 | 10 | Hardening and CI/CD | ⬜ | CI for build/test/lint already runs on PRs |
 | 11 | Polish and portfolio | ⬜ | |
@@ -111,12 +111,12 @@ Local setup: `dotnet user-secrets set "ConnectionStrings:Default" "<neon string>
 ### Step 2 — Frontend skeleton (React)
 Needs: Step 0. Parallel with Step 1.
 - [x] Vite + React + TypeScript, Tailwind, React Router with routes `/`, `/c/:slug`, `/p/:slug`, `/cart`, `/checkout`, `/orders`, `/admin/*`.
-- [x] Layout: header with logo, cart link, sign-in button; footer. *(Category menu and real cart count wait for Steps 4 and 8.)*
+- [x] Layout: header with logo, cart link, sign-in button; footer. *(Category menu and live cart count added in Steps 6 and 8; the sign-in button stays disabled until Step 3.)*
 - [x] API client reading `VITE_API_URL` (set in Vercel to the Render URL); TanStack Query. The live site shows the API health status.
 - [x] `vercel.json` rewrite for deep links.
 - [x] Deploy to Vercel: https://rong-tuli-peach.vercel.app (Hobby plan, root directory `web`, Vite preset).
 
-Decide: plain Tailwind or a component kit such as shadcn/ui (plain Tailwind so far); cart state with Zustand or React context (open until Step 8). **Done when:** the Vercel URL shows the layout and displays the API health status.
+Decided: plain Tailwind, no component kit; cart state in a React context (Step 8). **Done when:** the Vercel URL shows the layout and displays the API health status.
 
 ### Step 3 — Google SSO and roles
 Needs: Steps 1 and 2.
@@ -146,12 +146,16 @@ Decide: direct-to-Cloudinary (default) or uploading through the API. **Done when
 
 ### Step 6 — Storefront UI
 Needs: Steps 2 and 4. Parallel with Step 5.
-- Product grid with cover image, name and price; category menu; sort dropdown (Newest, Price low to high, Price high to low).
-- Category, sort and page in the URL query string so links are shareable.
-- Product page with image gallery and thumbnails, description, size picker and Add to cart.
-- Mobile-first layout, lazy-loaded images, loading skeletons and empty states.
+- [x] Product grid with cover image, name and price; category menu; sort dropdown (Newest, Price low to high, Price high to low).
+- [x] Category in the path (`/c/:slug`), sort and page in the query string so links are shareable.
+- [x] Product page with image gallery and thumbnails, description, size picker and Add to cart.
+- [x] Mobile-first layout, lazy-loaded images, loading skeletons and empty states.
+- [x] Design tokens in `web/src/index.css`: semantic colours (surface, ink, accent) re-pointed under `prefers-color-scheme`, so dark mode needs no per-component classes. Contrast pairs checked against WCAG 2.1 AA.
+- [x] Accessibility: skip link, breadcrumbs, labelled sort control, a radio group for sizes, visible focus rings, `aria-label` on icon-only controls.
 
-**Done when:** browsing, filtering and sorting work at phone width on the live site.
+Deviation from the house styling standard (styled-components): this app settled on Tailwind in Step 2, so shared class recipes live in `web/src/components/common/styles.ts` instead.
+
+**Done when:** browsing, filtering and sorting work at phone width on the live site. *(Code complete and verified by build, lint and unit tests; the live check needs products in the database — see Step 7.)*
 
 ### Step 7 — Admin panel UI
 Needs: Steps 3 and 5.
@@ -162,10 +166,12 @@ Decide: react-hook-form + zod (default) or an admin framework such as react-admi
 
 ### Step 8 — Cart
 Needs: Step 6.
-- Cart store saved to localStorage (product, size, quantity); header badge; cart page with quantity change, remove and subtotal.
-- `POST /api/cart/quote` re-checks prices and availability so changed prices and removed products are flagged before checkout.
+- [x] Cart store saved to localStorage (product, size, quantity); header badge; cart page with quantity change, remove and subtotal.
+- [x] `POST /api/cart/quote` re-checks prices and availability so changed prices and removed products are flagged before checkout. Issue codes: `unavailable`, `price_changed`, `size_unavailable`.
+- [x] A stored cart is treated as untrusted input: every line is validated and clamped on load, and storage failures (private mode, cleared site data) fall back to an empty cart rather than throwing.
+- [x] Checkout is blocked while any line is unorderable; a changed price is shown but does not block.
 
-Decide: client-only cart (default) or a server cart per user. **Done when:** the cart survives a reload and a deactivated product is flagged in it.
+Decided: client-only cart, re-priced by the server at the cart page and again at checkout. The cart lives in a React context (`web/src/cart/`) reached only through `useCart`, so it has no third-party dependency and one file to swap if it outgrows that. **Done when:** the cart survives a reload and a deactivated product is flagged in it. *(Both covered by unit and integration tests.)*
 
 ### Step 9 — Checkout and orders (cash on delivery)
 Needs: Steps 3 and 8.
@@ -226,9 +232,9 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 |---|---|---|---|
 | Keep a separate .NET API, or all-JavaScript on Vercel functions | Step 0 | Keep .NET | Keeping .NET |
 | Backend host | Step 0 | Render free web service with Docker | **Settled: Render** (2026-10-18), account open and deployed. Sleeps after 15 min idle; move the backend to a paid instance before real sales |
-| Can viewers browse and fill the cart without signing in | Step 3 | Yes; sign-in only at checkout | Open |
+| Can viewers browse and fill the cart without signing in | Step 3 | Yes; sign-in only at checkout | **Settled: yes** (2026-10-18). Browsing, the cart and `/api/cart/quote` are all anonymous; Step 9 puts the sign-in gate at checkout |
 | Token storage | Step 3 | Bearer JWT, short expiry, re-login on expiry | Open |
-| Currency and price format | Step 4 | Bangladeshi taka, whole numbers | Columns are `numeric(12,2)`; display format open |
+| Currency and price format | Step 4 | Bangladeshi taka, whole numbers | **Settled** (2026-10-18). Columns stay `numeric(12,2)`; `formatTaka` shows `৳` with grouped thousands and decimals only when a price has them |
 | Clothing sizes | Step 4 | A size list per product, no per-size stock | `text[]` on Product |
 | Stock tracking | Step 4 | In-stock flag only | Open |
 | Delivery charge | Step 9 | A flat fee, editable in settings | Open |
@@ -255,3 +261,6 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | 2026-10-18 | Step 1: API deployed to Render and `/health` is healthy against Neon (local check also healthy). Recorded the working Render settings. Remaining for Step 2: set `VITE_API_URL` in Vercel. |
 | 2026-10-18 | Step 2 done: `VITE_API_URL` set in Vercel; the live site shows the API healthy. Steps 1 and 2 marked done (Step 1 env vars for Jwt/Google/Cloudinary/Admin are bound in Steps 3 and 5; Step 2 category menu waits on Step 4). |
 | 2026-10-18 | Step 4 done on `feature/catalog-api`: categories and products public API, admin CRUD, slug generation, validation, DTOs. Settled IsActive-only and numbered pages. Seed categories confirmed in Neon via `GET /api/categories`. Activating a product without images is not yet blocked (Step 5). |
+| 2026-10-18 | Steps 6 and 8 done on `feature/storefront-ui-and-cart`. Storefront: design tokens with automatic dark mode, category menu, product grid, sort and paging in the URL, product page with gallery and size picker, skeletons and empty states. Cart: localStorage store behind `useCart`, header badge, cart page, and a new `POST /api/cart/quote`. Settled four open decisions (price format, cart state, client-only cart, anonymous browsing). Added vitest to the web app (34 tests) and 17 API tests, 53 in total. |
+| 2026-10-18 | Added `CartQueries.ProductsForQuote` with tests that compile it against the Npgsql provider via `ToQueryString`. The endpoint tests use the in-memory provider, which accepts projections PostgreSQL would reject — the `text[]` `Sizes` column made that a real risk. |
+| 2026-10-18 | Removed the unused scaffold sprite `web/public/icons.svg` and replaced the scaffold favicon with a RongTuli mark in the new palette. |
