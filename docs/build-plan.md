@@ -10,11 +10,11 @@ Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs you
 
 | Step | Title | Status | Notes |
 |---|---|---|---|
-| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. Accounts and Google OAuth are 🔒 (see below). `ci.yml` is not yet in git (see Step 0). |
-| 1 | Backend skeleton (.NET API) | 🟡 | Code done: EF Core + Npgsql, entities, `InitialCreate` migration, seed categories, DB-checking `/health`. Left: env-var config for Jwt/Google/Cloudinary/Admin (added by Steps 3 and 5), deploy to host 🔒 |
-| 2 | Frontend skeleton (React) | 🟡 | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Left: category menu (needs Step 4 API), live Vercel deploy 🔒 |
+| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. Accounts and Google OAuth are 🔒 (see below). |
+| 1 | Backend skeleton (.NET API) | ✅ | Code done: EF Core + Npgsql, entities, `InitialCreate` migration, seed categories, DB-checking `/health`. Left: env-var config for Jwt/Google/Cloudinary/Admin (added by Steps 3 and 5). Deployed to Render (https://rongtuliapi.onrender.com), `/health` healthy against Neon. |
+| 2 | Frontend skeleton (React) | ✅ | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Deployed to Vercel at https://rong-tuli-peach.vercel.app. Live site shows the API health status (`VITE_API_URL` set to the Render URL). Deferred: category menu (needs Step 4 API). |
 | 3 | Google SSO and roles | ⬜ | Needs Google OAuth client 🔒 |
-| 4 | Catalog API | ⬜ | Entities and indexes already exist from Step 1 |
+| 4 | Catalog API | ✅ | Public and admin endpoints with 24 new integration tests (36 total passing); public endpoints verified against Neon. Admin endpoints answer 401 until Step 3 adds JWT sign-in. |
 | 5 | Product image upload | ⬜ | Needs Cloudinary account 🔒 |
 | 6 | Storefront UI | ⬜ | |
 | 7 | Admin panel UI | ⬜ | |
@@ -85,10 +85,10 @@ Implementation choices made in Step 1: ids are `int`; `Price`/`Total`/`UnitPrice
 ### Step 0 — Accounts and repo setup
 Needs: nothing.
 - [x] Create the public GitHub monorepo with `api/` and `web/` folders and a README stub.
-- [ ] 🔒 Open accounts: Vercel (linked to GitHub), Neon, Cloudinary, and the backend host.
+- [ ] 🔒 Open accounts: Vercel (linked to GitHub) ✅ done; Neon ✅ done; Render ✅ done; Cloudinary still to open.
 - [ ] 🔒 Google Cloud: OAuth consent screen and a Web OAuth client ID; add `http://localhost:5173` and the Vercel domain as authorized JavaScript origins.
 - [ ] 🔒 Keep every key and connection string in a password manager, never in the repo.
-- [x] CI workflow (`.github/workflows/ci.yml`) builds and tests the API and lints and builds the web app. *(Held out of the Step 1 PR: the git login lacked the GitHub `workflow` scope, so the file is still untracked locally. Add it in its own PR once the scope is granted or via the web UI.)*
+- [x] CI workflow (`.github/workflows/CI.yml`) builds and tests the API and lints and builds the web app. *(Merged in PR #5 after being held out of the Step 1 PR.)*
 
 Decide: backend host (Render vs Azure F1); whether to keep a .NET API at all. **Done when:** all accounts exist and the repo builds an empty CI run.
 
@@ -101,19 +101,20 @@ Needs: Step 0. Parallel with Step 2.
 - [x] `/health` checks the database: 200 `{"status":"healthy"}` or 503 `{"status":"unhealthy"}`.
 - [x] Seed categories (Men, Women, Kids, Accessories) via migration data.
 - [x] Dockerfile.
-- [ ] 🔒 Deploy to the host and apply the migration to Neon.
+- [x] Apply the migration to Neon (`InitialCreate` applied; local `/health` returned 200 against Neon).
+- [x] Deploy to Render: https://rongtuliapi.onrender.com. Settings: Docker, branch `develop`, Root Directory `api`, Dockerfile Path `api/Shop.Api/Dockerfile` (relative to repo root, must include the filename), build context `api`, health check `/health`, free instance. Env vars: `ConnectionStrings__Default` (Npgsql key-value string, value only, no key name or quotes, not the `postgresql://` URI) and `Cors__Origins__0`.
 
 Decide: minimal APIs or controllers (open; minimal APIs used so far); run migrations at startup or as a CI step (**open — must be settled before first deploy**). **Done when:** `/health` returns 200 from the public URL with the database connected.
 
-Local setup: `dotnet user-secrets set "ConnectionStrings:Default" "<neon string>"` in `api/Shop.Api`, then `dotnet ef database update --project Shop.Api` from `api/` (local tool restored with `dotnet tool restore`).
+Local setup: `dotnet user-secrets set "ConnectionStrings:Default" "<neon string>"` in `api/Shop.Api`, then run `dotnet tool restore` and `dotnet ef database update --project Shop.Api --connection "<neon string>"` from `api/`. The `--connection` flag is required: the design-time factory (`ShopDbContextFactory`) uses a placeholder localhost database and does not read user-secrets.
 
 ### Step 2 — Frontend skeleton (React)
 Needs: Step 0. Parallel with Step 1.
 - [x] Vite + React + TypeScript, Tailwind, React Router with routes `/`, `/c/:slug`, `/p/:slug`, `/cart`, `/checkout`, `/orders`, `/admin/*`.
 - [x] Layout: header with logo, cart link, sign-in button; footer. *(Category menu and real cart count wait for Steps 4 and 8.)*
-- [x] API client reading `VITE_API_URL`; TanStack Query.
+- [x] API client reading `VITE_API_URL` (set in Vercel to the Render URL); TanStack Query. The live site shows the API health status.
 - [x] `vercel.json` rewrite for deep links.
-- [ ] 🔒 Deploy to Vercel.
+- [x] Deploy to Vercel: https://rong-tuli-peach.vercel.app (Hobby plan, root directory `web`, Vite preset).
 
 Decide: plain Tailwind or a component kit such as shadcn/ui (plain Tailwind so far); cart state with Zustand or React context (open until Step 8). **Done when:** the Vercel URL shows the layout and displays the API health status.
 
@@ -127,12 +128,12 @@ Decide: bearer token in memory/localStorage (simplest across vercel.app and the 
 
 ### Step 4 — Catalog API
 Needs: Step 1. Can run alongside Step 3.
-- Public: `GET /api/categories`, `GET /api/products?category=&sort=newest|price_asc|price_desc&page=&pageSize=`, `GET /api/products/{slug}`; only active products.
-- Admin: create, update, deactivate for categories and products; slug generation; validation.
-- Indexes on CategoryId, Price and CreatedAt *(done in Step 1)*; response DTOs instead of entities.
-- Integration tests for filter, sort and paging.
+- [x] Public: `GET /api/categories`, `GET /api/products?category=&sort=newest|price_asc|price_desc&page=&pageSize=`, `GET /api/products/{slug}`; only active products.
+- [x] Admin (`/api/admin/...`, behind the `Admin` policy that Step 3 binds to JWT): create, update, deactivate for categories and products; slug generation; validation.
+- [x] Indexes on CategoryId, Price and CreatedAt *(done in Step 1)*; response DTOs instead of entities.
+- [x] Integration tests for filter, sort and paging.
 
-Decide: soft delete or IsActive only; numbered pages or load-more; how sizes are stored *(text[] chosen)*. **Done when:** seed data sorts and filters correctly through Swagger and the tests pass.
+Decided: IsActive only (DELETE deactivates a product; a category with products returns 409); numbered pages; how sizes are stored *(text[] chosen)*. **Done when:** seed data sorts and filters correctly through Swagger and the tests pass.
 
 ### Step 5 — Product image upload
 Needs: Step 4. Parallel with Step 6.
@@ -224,7 +225,7 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | Decision | Settle in | Default assumed | Current state |
 |---|---|---|---|
 | Keep a separate .NET API, or all-JavaScript on Vercel functions | Step 0 | Keep .NET | Keeping .NET |
-| Backend host | Step 0 | Render free web service with Docker | Open 🔒 |
+| Backend host | Step 0 | Render free web service with Docker | **Settled: Render** (2026-10-18), account open and deployed. Sleeps after 15 min idle; move the backend to a paid instance before real sales |
 | Can viewers browse and fill the cart without signing in | Step 3 | Yes; sign-in only at checkout | Open |
 | Token storage | Step 3 | Bearer JWT, short expiry, re-login on expiry | Open |
 | Currency and price format | Step 4 | Bangladeshi taka, whole numbers | Columns are `numeric(12,2)`; display format open |
@@ -247,3 +248,10 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | 2026-10-11 | Created this Markdown version from the PDF. Recorded progress: scaffold (Steps 0–2) already present. |
 | 2026-10-11 | Step 1 code completed on `feature/backend-data-model`: EF Core + Npgsql, six entities, `InitialCreate` migration with seed categories, DB-checking `/health` (200/503), in-memory test factory and 12 passing tests. Nullable warnings treated as errors. Added the credentials table and open decision "migrations at startup vs CI step". |
 | 2026-10-11 | Pushing `ci.yml` was rejected (token lacks `workflow` scope), so CI was left out of the Step 1 PR; tracked under Step 0. |
+| 2026-10-18 | Step 2: frontend deployed to Vercel (https://rong-tuli-peach.vercel.app). Vercel account created. Production branch still to be switched to `main`. |
+| 2026-10-18 | Step 0: CI workflow is in git (PR #5, `CI.yml`); removed the stale "untracked" notes. |
+| 2026-10-18 | Step 0/1: Neon account created; `InitialCreate` applied to Neon and local `/health` returns 200 against it. Documented that `dotnet ef database update` needs `--connection`. Seed rows not yet verified in the Neon console. |
+| 2026-10-18 | Settled backend host: Render free web service (Docker). Must leave the free tier before real sales because of the 15-minute idle sleep. |
+| 2026-10-18 | Step 1: API deployed to Render and `/health` is healthy against Neon (local check also healthy). Recorded the working Render settings. Remaining for Step 2: set `VITE_API_URL` in Vercel. |
+| 2026-10-18 | Step 2 done: `VITE_API_URL` set in Vercel; the live site shows the API healthy. Steps 1 and 2 marked done (Step 1 env vars for Jwt/Google/Cloudinary/Admin are bound in Steps 3 and 5; Step 2 category menu waits on Step 4). |
+| 2026-10-18 | Step 4 done on `feature/catalog-api`: categories and products public API, admin CRUD, slug generation, validation, DTOs. Settled IsActive-only and numbered pages. Seed categories confirmed in Neon via `GET /api/categories`. Activating a product without images is not yet blocked (Step 5). |
