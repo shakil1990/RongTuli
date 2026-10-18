@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Shop.Api;
+using Shop.Api.Cart;
 using Shop.Api.Catalog;
 using Shop.Api.Security;
 
@@ -33,6 +34,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapCatalogEndpoints();
 app.MapAdminCatalogEndpoints();
+app.MapCartEndpoints();
 
 // Reports only healthy/unhealthy so the public endpoint never leaks connection details.
 app.MapHealthChecks("/health", new HealthCheckOptions
