@@ -1,0 +1,125 @@
+  # CI pipeline for RongTuli: builds, tests and lints the API (.NET) and the web app (React).
+  # Runs on every pull request and on every push to main/develop.
+  name: CI
+
+  on:
+    pull_request:          # every PR, regardless of target branch
+    push:
+      branches: [main, develop]   # keeps the long-lived branches verified after merges
+
+  # Least privilege: the jobs only need to read the repo. Nothing here can push, comment or deploy.
+  permissions:
+    contents: read
+
+  # If a newer commit arrives on the same branch/PR, cancel the older run to save free Actions minutes.
+  concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+  # Keeps .NET logs clean and stops telemetry prompts on the runner.
+  env:
+    DOTNET_NOLOGO: true
+    DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+  jobs:
+    # ---------------------------------------------------------------------------
+    # API: build the solution, verify the EF model matches migrations, run tests.
+    # ---------------------------------------------------------------------------
+    api:
+      name: API (build, migrations, test)
+      runs-on: ubuntu-latest
+      timeout-minutes: 10            # a hung job fails fast instead of burning minutes
+      defaults:
+        run:
+          working-directory: api     # every `run` step below executes inside /api
+      steps:
+        # 1. Get the code.
+        - uses: actions/checkout@v4
+
+        # 2. Install the exact .NET SDK pinned in api/global.json, so CI matches local builds.
+        - uses: actions/setup-dotnet@v4
+          with:
+            global-json-file: api/global.json
+
+        # 3. Restore NuGet packages once; later steps reuse the result (--no-restore).
+        - name: Restore
+          run: dotnet restore Shop.sln
+
+        # 4. Compile in Release. Nullable warnings are errors in the csproj, so they fail here.
+        - name: Build
+          run: dotnet build Shop.sln --configuration Release --no-restore
+
+        # 5. Fail if an entity/config changed without a matching migration
+        #    (otherwise the deployed database would drift from the code).
+        #    Uses the local dotnet-ef tool pinned in api/dotnet-tools.json.
+        - name: Check EF migrations are up to date
+          run: |
+            dotnet tool restore
+            dotnet ef migrations has-pending-model-changes --project Shop.Api --configuration Release --no-build
+
+        # 6. Run the tests against the already-built binaries and collect coverage (coverlet).
+        #    Tests use an in-memory database, so no Postgres or secrets are needed.
+        - name: Test
+          run: >
+            dotnet test Shop.sln --configuration Release --no-build
+            --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+        # 7. Keep the coverage report downloadable from the run page, even if tests failed.
+        - name: Upload coverage
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: api-coverage
+            path: api/coverage/**/coverage.cobertura.xml
+            if-no-files-found: ignore
+
+    # ---------------------------------------------------------------------------
+    # Web: install exactly what's in the lockfile, lint, type-check and build.
+    # ---------------------------------------------------------------------------
+    web:
+      name: Web (lint, build)
+      runs-on: ubuntu-latest
+      timeout-minutes: 10
+      defaults:
+        run:
+          working-directory: web
+      steps:
+        - uses: actions/checkout@v4
+
+        # Node 24 with the npm download cache keyed on package-lock.json (faster installs).
+        - uses: actions/setup-node@v4
+          with:
+            node-version: 24
+            cache: npm
+            cache-dependency-path: web/package-lock.json
+
+        # `npm ci` installs strictly from the lockfile and fails if it's out of sync with package.json.
+        - name: Install
+          run: npm ci
+
+        - name: Lint
+          run: npm run lint
+
+        # `npm run build` runs `tsc -b` (type-check) and then the Vite production build.
+        # VITE_API_URL is baked in at build time; a dummy value is enough because CI never calls the API.
+        - name: Build
+          run: npm run build
+          env:
+            VITE_API_URL: http://localhost:8080
+
+    # ---------------------------------------------------------------------------
+    # Single "gate" check. In branch protection, require only this one job instead of
+    # listing each job; it passes only when both jobs above passed.
+    # ---------------------------------------------------------------------------
+    ci-passed:
+      name: CI passed
+      runs-on: ubuntu-latest
+      needs: [api, web]
+      if: always()                   # run even when a dependency failed, so the gate reports failure
+      steps:
+        - name: Fail if any job failed or was cancelled
+          run: |
+            if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+              echo "One or more jobs failed."
+              exit 1
+            fi

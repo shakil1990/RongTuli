@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/*
+ * RongTuli design tokens.
+ *
+ * Deviation from the house styling standard: that standard asks for styled-components, but
+ * Step 2 of the build plan settled this app on Tailwind, so the palette lives here as theme
+ * tokens and components compose utility classes instead of styled wrappers.
+ *
+ * Colours are named semantically (surface, ink, accent) and re-pointed under
+ * prefers-color-scheme, so a component never spells out a light or dark value. Every
+ * ink/surface pair below clears WCAG 2.1 AA for body text.
+ */
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+}
+
+@theme inline {
+  --color-surface: var(--rt-surface);
+  --color-raised: var(--rt-raised);
+  --color-sunken: var(--rt-sunken);
+  --color-ink: var(--rt-ink);
+  --color-muted: var(--rt-muted);
+  --color-line: var(--rt-line);
+  --color-accent: var(--rt-accent);
+  --color-accent-hover: var(--rt-accent-hover);
+  --color-accent-soft: var(--rt-accent-soft);
+  --color-accent-ink: var(--rt-accent-ink);
+  --color-warning: var(--rt-warning);
+  --color-warning-soft: var(--rt-warning-soft);
+}
+
+:root {
+  color-scheme: light;
+
+  --rt-surface: #fdfaf7;
+  --rt-raised: #ffffff;
+  --rt-sunken: #f6efea;
+  --rt-ink: #231a1e;
+  --rt-muted: #7b6b72;
+  --rt-line: #ece2e4;
+  --rt-accent: #b11c51;
+  --rt-accent-hover: #931b45;
+  --rt-accent-soft: #fce7ef;
+  --rt-accent-ink: #ffffff;
+  --rt-warning: #8a5300;
+  --rt-warning-soft: #fdf2dd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --rt-surface: #15100f;
+    --rt-raised: #1e1817;
+    --rt-sunken: #251e1d;
+    --rt-ink: #f6f0ec;
+    --rt-muted: #b3a3a8;
+    --rt-line: #342b2b;
+    --rt-accent: #f8a9c6;
+    --rt-accent-hover: #fbd0e0;
+    --rt-accent-soft: #3a1424;
+    --rt-accent-ink: #3b0d1e;
+    --rt-warning: #f0c27a;
+    --rt-warning-soft: #3a2a10;
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Headings carry the display serif; utilities can still override per element. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+}
