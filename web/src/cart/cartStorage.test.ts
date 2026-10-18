@@ -104,4 +104,25 @@ describe('cart storage', () => {
 
     expect(loadCart()[0]!.size).toBeNull()
   })
+
+  it('merges a repeated product and size into one line, so one row cannot edit as two', () => {
+    seed(JSON.stringify([{ ...line, quantity: 2 }, { ...line, quantity: 3 }]))
+
+    const loaded = loadCart()
+
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0]!.quantity).toBe(5)
+  })
+
+  it('caps a merged quantity at the maximum', () => {
+    seed(JSON.stringify([{ ...line, quantity: 90 }, { ...line, quantity: 90 }]))
+
+    expect(loadCart()[0]!.quantity).toBe(99)
+  })
+
+  it('keeps the same product in two sizes as two lines', () => {
+    seed(JSON.stringify([{ ...line, size: 'M' }, { ...line, size: 'L' }]))
+
+    expect(loadCart().map((entry) => entry.size)).toEqual(['M', 'L'])
+  })
 })

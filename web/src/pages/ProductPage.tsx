@@ -15,6 +15,13 @@ import { catalogKeys, fetchProduct } from '../services/catalog'
 
 export function ProductPage() {
   const { slug = '' } = useParams()
+
+  // The route keeps this page mounted when only the slug changes, so the key remounts it:
+  // the size and quantity chosen for one product must not carry over to the next.
+  return <ProductView key={slug} slug={slug} />
+}
+
+function ProductView({ slug }: { slug: string }) {
   const { addLine } = useCart()
 
   const [size, setSize] = useState<string | null>(null)
@@ -66,8 +73,13 @@ export function ProductPage() {
 
   const product = productQuery.data
 
+  // A chosen size is only as good as the product's current size list: a refetch can drop the
+  // size that was picked, and a size no longer offered would reach the cart as a line the
+  // quote then refuses.
+  const selectedSize = size !== null && product.sizes.includes(size) ? size : null
+
   const handleAddToCart = () => {
-    if (product.sizes.length > 0 && size === null) {
+    if (product.sizes.length > 0 && selectedSize === null) {
       setSizeError(true)
       return
     }
@@ -77,7 +89,7 @@ export function ProductPage() {
       productId: product.id,
       slug: product.slug,
       name: product.name,
-      size,
+      size: selectedSize,
       quantity,
       unitPrice: product.price,
       coverImageUrl: product.images[0]?.url ?? null,
@@ -115,7 +127,7 @@ export function ProductPage() {
           {product.sizes.length > 0 && (
             <SizePicker
               sizes={product.sizes}
-              value={size}
+              value={selectedSize}
               onChange={(nextSize) => {
                 setSize(nextSize)
                 setSizeError(false)

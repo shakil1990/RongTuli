@@ -4,6 +4,8 @@ import { MAX_CART_LINES, MAX_CART_QUANTITY } from '../types/cart'
 /** Versioned so a later shape change can be told apart from this one. */
 export const STORAGE_KEY = 'rongtuli.cart.v1'
 
+const clampQuantity = (quantity: number) => Math.min(MAX_CART_QUANTITY, Math.max(1, quantity))
+
 /**
  * Stored carts are untrusted: a viewer can edit localStorage and an older build may have
  * written a different shape, so every line is validated before it reaches the UI. Prices
@@ -25,7 +27,7 @@ function parseLine(value: unknown): CartLine | null {
     slug,
     name,
     size: typeof size === 'string' && size.length > 0 ? size : null,
-    quantity: Math.min(MAX_CART_QUANTITY, Math.max(1, quantity as number)),
+    quantity: clampQuantity(quantity as number),
     unitPrice,
     coverImageUrl: typeof coverImageUrl === 'string' && coverImageUrl.length > 0 ? coverImageUrl : null,
   }
@@ -40,10 +42,25 @@ export function loadCart(): CartLine[] {
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
 
-    return parsed
-      .map(parseLine)
-      .filter((line): line is CartLine => line !== null)
-      .slice(0, MAX_CART_LINES)
+    // A line is identified by product and size, and that pair is what the cart page keys its
+    // rows on and edits by. A tampered or older store can hold the same pair twice, which
+    // would show two rows that change and remove as one, so repeats are merged on the way in.
+    const lines: CartLine[] = []
+    for (const value of parsed) {
+      const line = parseLine(value)
+      if (line === null) continue
+
+      const existing = lines.find(
+        (kept) => kept.productId === line.productId && kept.size === line.size,
+      )
+      if (existing) {
+        existing.quantity = clampQuantity(existing.quantity + line.quantity)
+      } else if (lines.length < MAX_CART_LINES) {
+        lines.push(line)
+      }
+    }
+
+    return lines
   } catch {
     return []
   }

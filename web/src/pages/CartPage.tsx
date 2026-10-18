@@ -33,8 +33,18 @@ export function CartPage() {
     )
   }
 
-  const blockedCount = quote?.items.filter((item) => !item.isOrderable).length ?? 0
-  const displayedSubtotal = quote?.subtotal ?? subtotal
+  // The endpoint answers one priced line per line sent, in order, so a quote is read by
+  // position. The length check makes a divergence fail safe rather than show one product's
+  // price and issues against another's row.
+  const pricedQuote = quote && quote.items.length === lines.length ? quote : undefined
+
+  const blockedCount = pricedQuote?.items.filter((item) => !item.isOrderable).length ?? 0
+  const displayedSubtotal = pricedQuote?.subtotal ?? subtotal
+
+  // Checkout opens only once the cart on screen has come back priced: until then nothing has
+  // checked that every line can still be ordered. A quote that failed outright does not hold
+  // it shut, since the warning above says the totals are confirmed at checkout instead.
+  const isAwaitingQuote = pricedQuote === undefined && !isError
 
   return (
     <div className="space-y-6">
@@ -60,7 +70,7 @@ export function CartPage() {
             <CartLineRow
               key={`${line.productId}-${line.size ?? ''}`}
               line={line}
-              quote={quote?.items[index]}
+              quote={pricedQuote?.items[index]}
               onQuantityChange={(quantity) =>
                 setQuantity({ productId: line.productId, size: line.size }, quantity)
               }
@@ -89,16 +99,18 @@ export function CartPage() {
             {isFetching ? 'Checking prices and availability…' : 'Prices checked against the shop.'}
           </p>
 
-          {blockedCount > 0 ? (
+          {blockedCount > 0 || isAwaitingQuote ? (
             <>
               <Button size="lg" className="w-full" disabled>
                 Checkout
               </Button>
-              <p role="alert" className="text-xs text-warning">
-                {blockedCount === 1
-                  ? 'One item needs attention before you can check out.'
-                  : `${blockedCount} items need attention before you can check out.`}
-              </p>
+              {blockedCount > 0 && (
+                <p role="alert" className="text-xs text-warning">
+                  {blockedCount === 1
+                    ? 'One item needs attention before you can check out.'
+                    : `${blockedCount} items need attention before you can check out.`}
+                </p>
+              )}
             </>
           ) : (
             <Link to="/checkout" className={buttonClasses('primary', 'lg', 'w-full')}>
