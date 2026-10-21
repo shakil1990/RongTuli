@@ -13,7 +13,7 @@ export function formatTaka(amount: number): string {
   return `৳${formatter.format(amount)}`
 }
 
-/** Initials for the image placeholder shown until Step 5 adds real product photos. */
+/** Initials for the placeholder shown when a product has no photograph yet. */
 export function initialsOf(name: string): string {
   return name
     .split(/\s+/)

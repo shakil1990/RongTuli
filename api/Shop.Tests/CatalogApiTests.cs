@@ -136,7 +136,8 @@ public sealed class CatalogApiTests : IDisposable
     public async Task AdminCreateProduct_GeneratesUniqueSlugs()
     {
         var client = _factory.CreateAdminClient();
-        var request = new ProductRequest("Red Tee!", 1, "Soft", 450m, [" M ", "L", "m"], true);
+        // A new product is always a draft: it has no image yet, and nothing goes live without one.
+        var request = new ProductRequest("Red Tee!", 1, "Soft", 450m, [" M ", "L", "m"], false);
 
         var first = await (await client.PostAsJsonAsync("/api/admin/products", request))
             .Content.ReadFromJsonAsync<ProductDetailDto>();
@@ -168,9 +169,10 @@ public sealed class CatalogApiTests : IDisposable
         var created = await (await client.PostAsJsonAsync(
                 "/api/admin/products", new ProductRequest("Tee", 1, null, 100m, ["S"], false)))
             .Content.ReadFromJsonAsync<ProductDetailDto>();
+        await AddImageAsync(created!.Id);
 
         var response = await client.PutAsJsonAsync(
-            $"/api/admin/products/{created!.Id}", new ProductRequest("Tee v2", 2, "New", 120m, ["S", "M"], true));
+            $"/api/admin/products/{created.Id}", new ProductRequest("Tee v2", 2, "New", 120m, ["S", "M"], true));
         var updated = await response.Content.ReadFromJsonAsync<ProductDetailDto>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -186,10 +188,14 @@ public sealed class CatalogApiTests : IDisposable
     {
         var client = _factory.CreateAdminClient();
         var created = await (await client.PostAsJsonAsync(
-                "/api/admin/products", new ProductRequest("Tee", 1, null, 100m, null, true)))
+                "/api/admin/products", new ProductRequest("Tee", 1, null, 100m, null, false)))
             .Content.ReadFromJsonAsync<ProductDetailDto>();
+        // Published first, so the delete has something to withdraw from the storefront.
+        await AddImageAsync(created!.Id);
+        await client.PutAsJsonAsync(
+            $"/api/admin/products/{created.Id}", new ProductRequest("Tee", 1, null, 100m, null, true));
 
-        var delete = await client.DeleteAsync($"/api/admin/products/{created!.Id}");
+        var delete = await client.DeleteAsync($"/api/admin/products/{created.Id}");
         var publicGet = await client.GetAsync("/api/products/tee");
         var adminGet = await client.GetFromJsonAsync<ProductDetailDto>($"/api/admin/products/{created.Id}");
 
@@ -247,6 +253,21 @@ public sealed class CatalogApiTests : IDisposable
         IsActive = isActive,
         CreatedAt = createdAt ?? DateTime.UtcNow
     };
+
+    /// <summary>Gives a draft the one image it needs before it can be activated.</summary>
+    private async Task AddImageAsync(int productId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopDbContext>();
+        db.ProductImages.Add(new ProductImage
+        {
+            ProductId = productId,
+            Url = "https://images.example.com/cover.jpg",
+            PublicId = $"products/{productId}-cover",
+            SortOrder = 0
+        });
+        await db.SaveChangesAsync();
+    }
 
     private async Task SeedAsync(params Product[] products)
     {

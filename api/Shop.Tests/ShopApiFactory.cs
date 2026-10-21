@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shop.Api.Data;
+using Shop.Api.Images;
 using Shop.Api.Security;
 
 namespace Shop.Tests;
@@ -26,6 +27,9 @@ public sealed class ShopApiFactory : WebApplicationFactory<Program>
     private const string TestScheme = "Test";
 
     private readonly string _databaseName = Guid.NewGuid().ToString();
+
+    /// <summary>The image host this instance runs against, so a test can inspect or break it.</summary>
+    public FakeImageStore ImageStore { get; } = new();
 
     public HttpClient CreateAdminClient()
     {
@@ -52,6 +56,9 @@ public sealed class ShopApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<ShopDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<ShopDbContext>>();
             services.AddDbContext<ShopDbContext>(options => options.UseInMemoryDatabase(_databaseName));
+
+            services.RemoveAll<IImageStore>();
+            services.AddSingleton<IImageStore>(ImageStore);
 
             services.AddAuthentication(TestScheme)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestScheme, null);
