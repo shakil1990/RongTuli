@@ -42,6 +42,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
                   url={image.url}
                   className="aspect-square w-16"
                   sizes="64px"
+                  widths={[64, 128]}
                 />
               </button>
             </li>

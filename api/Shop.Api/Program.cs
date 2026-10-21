@@ -3,6 +3,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Shop.Api;
 using Shop.Api.Cart;
 using Shop.Api.Catalog;
+using Shop.Api.Images;
 using Shop.Api.Security;
 
 const string CorsPolicy = "Frontend";
@@ -13,6 +14,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddShopData(builder.Configuration);
 builder.Services.AddAdminAuthorization();
+builder.Services.AddImageStore(builder.Configuration);
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
@@ -34,6 +36,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapCatalogEndpoints();
 app.MapAdminCatalogEndpoints();
+app.MapProductImageEndpoints();
 app.MapCartEndpoints();
 
 // Reports only healthy/unhealthy so the public endpoint never leaks connection details.
