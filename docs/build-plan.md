@@ -2,7 +2,7 @@
 
 Living version of *Simple E-commerce Build Plan.pdf* (Oct 11, 2026). The PDF is the original; **this file is the source of truth** and is updated whenever a step is completed or the plan changes (see [Change log](#change-log)).
 
-A cash-on-delivery clothing store with a React storefront, an ASP.NET Core API and Google sign-in, built in 12 steps on free tiers. Steps in the same wave can run in parallel, and every step ends with something deployed and testable on the live site.
+A cash-on-delivery clothing store with a React storefront, an ASP.NET Core API, Google sign-in for the two admins and phone-OTP checkout for customers, built in 13 steps on free tiers. Steps in the same wave can run in parallel, and every step ends with something deployed and testable on the live site.
 
 Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs your action (account / credentials)
 
@@ -10,18 +10,19 @@ Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs you
 
 | Step | Title | Status | Notes |
 |---|---|---|---|
-| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. Accounts and Google OAuth are 🔒 (see below). |
+| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. All accounts open (Vercel, Neon, Render, Cloudinary). The Google OAuth client is the only 🔒 item left. |
 | 1 | Backend skeleton (.NET API) | ✅ | Code done: EF Core + Npgsql, entities, `InitialCreate` migration, seed categories, DB-checking `/health`. Left: env-var config for Jwt/Google/Cloudinary/Admin (added by Steps 3 and 5). Deployed to Render (https://rongtuliapi.onrender.com), `/health` healthy against Neon. |
 | 2 | Frontend skeleton (React) | ✅ | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Deployed to Vercel at https://rong-tuli-peach.vercel.app. Live site shows the API health status (`VITE_API_URL` set to the Render URL). Category menu and cart count added in Steps 6 and 8. |
-| 3 | Google SSO and roles | ⬜ | Needs Google OAuth client 🔒 |
+| 3 | Google SSO (admin sign-in) | ⬜ | Admin-only — customers never sign in (Step 12). Needs Google OAuth client 🔒 |
 | 4 | Catalog API | ✅ | Public and admin endpoints with 24 new integration tests (36 total passing); public endpoints verified against Neon. Admin endpoints answer 401 until Step 3 adds JWT sign-in. |
-| 5 | Product image upload | ⬜ | Needs Cloudinary account 🔒 |
-| 6 | Storefront UI | ✅ | Design tokens with dark mode, category menu, grid, sort and paging in the URL, product page with gallery and size picker. Product photos are placeholders until Step 5. |
-| 7 | Admin panel UI | ⬜ | |
+| 5 | Product image upload | 🟡 | Code done: signed direct upload behind `IImageStore`, add/delete/reorder endpoints, the 5-image cap, the no-image-no-activation rule, and Cloudinary URL transforms on the storefront. Left: drive it from the live site, which needs Step 7. |
+| 6 | Storefront UI | ✅ | Design tokens with dark mode, category menu, grid, sort and paging in the URL, product page with gallery and size picker. Images now served through Cloudinary transforms (Step 5); the initials placeholder covers a product with no photograph. |
+| 7 | Admin panel UI | ⬜ | The image manager builds on Step 5's endpoints and `web/src/services/images.ts`; fetching an upload ticket needs the bearer token from Step 3. |
 | 8 | Cart | ✅ | localStorage cart behind `useCart`, header badge, cart page, and `POST /api/cart/quote` re-pricing with unavailable/price-changed/size flags. 34 web unit tests, 17 new API tests. |
-| 9 | Checkout and orders (COD) | ⬜ | |
+| 9 | Checkout and orders (COD) | ⬜ | Gated on a phone verified by OTP (Step 12), not on an account |
 | 10 | Hardening and CI/CD | ⬜ | CI for build/test/lint already runs on PRs |
 | 11 | Polish and portfolio | ⬜ | |
+| 12 | Phone verification (OTP) | ⬜ | Added 2026-10-21. Runs in wave 5, blocks Step 9. Needs an SMS provider 🔒 (dev sender logs the code, so the code is not blocked) |
 
 ## Scope
 
@@ -30,8 +31,8 @@ Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs you
 | Browse by category, sort by price or newest arrival | Yes | Yes |
 | Product page with 1 to 5 images | View | Add, reorder, delete |
 | Cart | Yes | Yes |
-| Place order with phone and address, cash on delivery | Yes, signed in | No |
-| Order history and status | Own orders | All orders, change status |
+| Place order with phone and address, cash on delivery | Yes, after verifying the phone by OTP — no account | No |
+| Order history and status | Confirmation page, then lookup by re-verifying the same phone | All orders, change status |
 | Manage categories and products | No | Yes |
 
 Out of scope for v1: online payment, reviews, coupons, wishlists and email marketing. The design keeps each of these addable later without schema rewrites.
@@ -46,7 +47,8 @@ The React app lives on Vercel and talks to an ASP.NET Core API on a free contain
 | Backend | ASP.NET Core Web API (.NET 10 LTS), EF Core | Render free web service (Docker) or Azure App Service F1 | Koyeb free; or Vercel serverless functions if .NET is dropped |
 | Database | PostgreSQL via Npgsql | Neon free tier | Supabase Postgres |
 | Images | Signed direct upload, CDN delivery with resizing | Cloudinary free plan | Supabase Storage |
-| Auth | Google Identity Services button; API verifies the Google ID token and issues its own JWT with a role | Google Cloud OAuth client (free) | None needed |
+| Admin auth | Google Identity Services button; API verifies the Google ID token and issues its own JWT with a role | Google Cloud OAuth client (free) | None needed |
+| Customer verification | Phone OTP: the API texts a code and issues a short-lived verified-phone token. No customer accounts | SMS gateway — provider not chosen yet (Step 12); a dev sender logs the code locally and in CI | Firebase Phone Auth; or a manual confirmation call while a provider is being chosen |
 | CI/CD | GitHub Actions for build and test; hosts deploy on push to main | GitHub (free for public repos) | None needed |
 
 Repo layout (one public monorepo): `/api` (Shop.Api, Shop.Tests), `/web`, `/.github/workflows`, `/docs`, `/knowledge-base`, `README.md`.
@@ -61,14 +63,17 @@ Implemented in `api/Shop.Api/Domain` and `api/Shop.Api/Data` (Step 1). Tables ar
 | Category | Id, Name, Slug, SortOrder | Name and slug unique |
 | Product | Id, CategoryId, Name, Slug, Description, Price, Sizes, IsActive, CreatedAt | CreatedAt drives newest-arrival sort; only active products are public. Slug unique. Indexed on CategoryId, Price, CreatedAt. |
 | ProductImage | Id, ProductId, Url, PublicId, SortOrder | 1 to 5 per active product; SortOrder 0 is the cover |
-| Order | Id, UserId, Phone, Address, Note, Status, Total, CreatedAt | Status: Pending, Confirmed, Shipped, Delivered, Cancelled |
+| Order | Id, UserId?, CustomerName, Phone, Address, Note, Status, Total, CreatedAt | Status: Pending, Confirmed, Shipped, Delivered, Cancelled. UserId is null for customer orders — customers have no account; the Phone must be OTP-verified before the order is accepted (Step 12). |
 | OrderItem | Id, OrderId, ProductId, ProductName, Size, UnitPrice, Quantity | Name and price copied at order time so later edits don't change old orders |
+| PhoneVerification | Id, Phone, CodeHash, ExpiresAt, AttemptCount, SendCount, ConsumedAt, CreatedAt | Added in Step 12. The code is hashed, never stored, returned or logged in plain text. Short TTL, capped attempts and sends per phone. Indexed on Phone. |
 
 Implementation choices made in Step 1: ids are `int`; `Price`/`Total`/`UnitPrice` are `numeric(12,2)` (so fractional prices need no migration, even though the default is whole taka); `Sizes` is a Postgres `text[]`; timestamps are UTC; Order→User and OrderItem→Product use `Restrict` deletes (deactivate products, never hard-delete ordered ones); ProductImage→Product and OrderItem→Order cascade.
 
+Step 12 adds a migration: the `PhoneVerification` table, `Order.UserId` becomes nullable (the Order→User foreign key stays `Restrict` but optional) and `Order.CustomerName` is added, since a guest order has no account to take the name from. The `User` table stays in use for admins only until a customer-account feature is ever wanted.
+
 ## Step order and parallel work
 
-12 steps in 7 waves. A wave starts once the steps it needs are done; the steps inside a wave don't depend on each other. Step 9 is where the store can take real orders.
+13 steps in 7 waves. A wave starts once the steps it needs are done; the steps inside a wave don't depend on each other. Step 9 is where the store can take real orders. Step 12 was added on 2026-10-21 and keeps its own number instead of renumbering the rest; it runs in wave 5 because Step 9 depends on it.
 
 | Wave | Steps |
 |---|---|
@@ -76,7 +81,7 @@ Implementation choices made in Step 1: ids are `int`; `Price`/`Total`/`UnitPrice
 | 2 | 1, 2 (parallel) |
 | 3 | 3, 4 (parallel; add the admin policy to Step 4 write endpoints once Step 3 lands) |
 | 4 | 5, 6 (parallel) |
-| 5 | 7, 8 (parallel) |
+| 5 | 7, 8, 12 (parallel) |
 | 6 | 9 |
 | 7 | 10, 11 (parallel) |
 
@@ -85,7 +90,7 @@ Implementation choices made in Step 1: ids are `int`; `Price`/`Total`/`UnitPrice
 ### Step 0 — Accounts and repo setup
 Needs: nothing.
 - [x] Create the public GitHub monorepo with `api/` and `web/` folders and a README stub.
-- [ ] 🔒 Open accounts: Vercel (linked to GitHub) ✅ done; Neon ✅ done; Render ✅ done; Cloudinary still to open.
+- [x] 🔒 Open accounts: Vercel (linked to GitHub), Neon, Render and Cloudinary. Cloudinary cloud name `mxtqngum`; the Root API key and secret are set as `Cloudinary__CloudName/__ApiKey/__ApiSecret` on Render. Local user-secrets added when Step 5 started, with `Cloudinary:Folder` pointed at `rongtuli/dev/products` so development uploads stay out of the production folder.
 - [ ] 🔒 Google Cloud: OAuth consent screen and a Web OAuth client ID; add `http://localhost:5173` and the Vercel domain as authorized JavaScript origins.
 - [ ] 🔒 Keep every key and connection string in a password manager, never in the repo.
 - [x] CI workflow (`.github/workflows/CI.yml`) builds and tests the API and lints and builds the web app. *(Merged in PR #5 after being held out of the Step 1 PR.)*
@@ -96,7 +101,7 @@ Decide: backend host (Render vs Azure F1); whether to keep a .NET API at all. **
 Needs: Step 0. Parallel with Step 2.
 - [x] `dotnet new webapi`, EF Core with Npgsql, entities above, first migration (`Data/Migrations/*_InitialCreate`).
 - [x] `ConnectionStrings__Default` read from configuration (fails fast with a clear message if missing).
-- [ ] Remaining settings read from environment variables: `Jwt__Key`, `Google__ClientId`, `Cloudinary__*`, `Admin__Emails` — bound by Steps 3 and 5 when they are first used.
+- [ ] Remaining settings read from environment variables: `Jwt__Key`, `Google__ClientId`, `Admin__Emails` — bound by Step 3 when they are first used. `Cloudinary__*` is bound (Step 5), and is checked when the image store is first used rather than at startup, so the API still boots without image credentials.
 - [x] CORS, ProblemDetails, OpenAPI in development.
 - [x] `/health` checks the database: 200 `{"status":"healthy"}` or 503 `{"status":"unhealthy"}`.
 - [x] Seed categories (Men, Women, Kids, Accessories) via migration data.
@@ -118,13 +123,14 @@ Needs: Step 0. Parallel with Step 1.
 
 Decided: plain Tailwind, no component kit; cart state in a React context (Step 8). **Done when:** the Vercel URL shows the layout and displays the API health status.
 
-### Step 3 — Google SSO and roles
-Needs: Steps 1 and 2.
-- Frontend: `@react-oauth/google` sign-in button returns a Google ID token.
-- API: `POST /api/auth/google` validates the token with `GoogleJsonWebSignature.ValidateAsync` (audience = your client ID), upserts the user, sets Admin role from the email allowlist, returns a short-lived JWT.
-- Admin authorization policy, `GET /api/me`, auth context in React, protected routes, sign-out.
+### Step 3 — Google SSO (admin sign-in)
+Needs: Steps 1 and 2. **Admin-only.** Customers never sign in — they verify a phone number instead (Step 12), so nothing in the shopping flow depends on this step.
+- Frontend: `@react-oauth/google` sign-in button, reachable from `/admin` rather than advertised on the storefront.
+- API: `POST /api/auth/google` validates the token with `GoogleJsonWebSignature.ValidateAsync` (audience = your client ID), upserts the user, sets the Admin role from the `Admin__Emails` allowlist (two addresses for now), returns a short-lived JWT.
+- A Google account that is not on the allowlist is rejected: there is nothing for a signed-in non-admin to do in v1.
+- Admin authorization policy (stubbed in `Security/AdminAuthorization.cs` — swap the placeholder scheme for JWT bearer; the `Admin` policy itself needs no change), `GET /api/me`, auth context in React, protected routes, sign-out.
 
-Decide: bearer token in memory/localStorage (simplest across vercel.app and the API domain) or an httpOnly cookie (needs SameSite=None and Secure); refresh tokens or re-login on expiry. **Done when:** you sign in on the live site, the admin email sees the Admin menu, and a viewer gets 403 from admin endpoints.
+Decide: bearer token in memory/localStorage (simplest across vercel.app and the API domain) or an httpOnly cookie (needs SameSite=None and Secure); refresh tokens or re-login on expiry. **Done when:** you sign in on the live site, both admin emails see the Admin menu, and a non-allowlisted Google account gets 403 from admin endpoints.
 
 ### Step 4 — Catalog API
 Needs: Step 1. Can run alongside Step 3.
@@ -137,12 +143,17 @@ Decided: IsActive only (DELETE deactivates a product; a category with products r
 
 ### Step 5 — Product image upload
 Needs: Step 4. Parallel with Step 6.
-- Admin-only endpoint returns Cloudinary signed upload parameters; the browser uploads directly to Cloudinary.
-- `POST /api/products/{id}/images` saves URL and public ID and rejects a sixth image; delete also removes the Cloudinary asset; reorder sets SortOrder.
-- A product can be a draft with no images but cannot be activated until it has at least one.
-- Thumbnails via Cloudinary URL transforms (width, `f_auto`, `q_auto`); check file type and size in the browser before upload.
+- [x] Admin-only endpoint returns Cloudinary signed upload parameters; the browser uploads directly to Cloudinary. `POST /api/admin/products/{productId}/images/upload-ticket` signs `folder` and `timestamp` only, so a ticket cannot be reused to upload anywhere else in the account, and it answers 409 when the product is already full.
+- [x] `POST /api/admin/products/{productId}/images` saves URL and public ID and rejects a sixth image (409); `DELETE .../images/{imageId}` also removes the Cloudinary asset; `PUT .../images/order` sets SortOrder.
+- [x] A product can be a draft with no images but cannot be activated until it has at least one — so a new product is always created as a draft, and the last image of an active product cannot be deleted (409).
+- [x] Thumbnails via Cloudinary URL transforms (`c_limit,f_auto,q_auto,w_…` in `web/src/lib/cloudinary.ts`, wired into `ProductThumb` as `src` plus a `srcSet` ladder); file type and size are checked in the browser against limits the upload ticket carries, so the rules live on the server only.
+- [x] Upload into `rongtuli/products` (the folder exists in the Media Library). Keep the folder prefix configurable: the free plan has one product environment, so local development and production share the `mxtqngum` account and dev uploads should land under a separate prefix (`Cloudinary__Folder`, local user-secrets point at `rongtuli/dev/products`). Signing sits behind `IImageStore`, which the tests fake, so CI needs no Cloudinary credentials.
+- [x] The browser reports back where it uploaded, so the API trusts the pair only after checking the public ID's characters and that both URL and public ID sit in this account's configured folder.
+- [ ] Verify on the live site — needs the admin UI from Step 7 to drive it.
 
-Decide: direct-to-Cloudinary (default) or uploading through the API. **Done when:** an admin can add up to five images, the sixth is blocked, and deleted images disappear from Cloudinary.
+Decided: direct-to-Cloudinary — no image bytes pass through the API, which keeps the free container host out of the upload path. Deletes call Cloudinary **before** removing the row, so an unreachable host leaves the catalog unchanged and answers 502 rather than leaving a row pointing at a deleted image. Sort orders are kept as a gapless sequence from 0, and 0 is the cover.
+
+**Done when:** an admin can add up to five images, the sixth is blocked, and deleted images disappear from Cloudinary. *(API and web helpers complete, covered by 24 new API tests and 15 new web tests; the end-to-end check waits on Step 7.)*
 
 ### Step 6 — Storefront UI
 Needs: Steps 2 and 4. Parallel with Step 5.
@@ -174,18 +185,19 @@ Needs: Step 6.
 Decided: client-only cart, re-priced by the server at the cart page and again at checkout. The cart lives in a React context (`web/src/cart/`) reached only through `useCart`, so it has no third-party dependency and one file to swap if it outgrows that. **Done when:** the cart survives a reload and a deactivated product is flagged in it. *(Both covered by unit and integration tests.)*
 
 ### Step 9 — Checkout and orders (cash on delivery)
-Needs: Steps 3 and 8.
-- Checkout requires sign-in and keeps the cart through the login redirect.
-- Form: name (prefilled from Google), phone with format validation, address, optional note; cash on delivery is the only payment method.
-- `POST /api/orders` recalculates every price from the database, copies item names and prices into OrderItems, and saves in one transaction; the button is disabled while submitting to stop duplicates.
-- Order confirmation page and My orders page; admin orders list filtered by status with a status change action.
+Needs: Steps 8 and 12. (Step 3 only for the admin orders screen.)
+- No account and no login redirect. Form: name, phone with Bangladeshi format validation, address, optional note; cash on delivery is the only payment method.
+- The phone is verified inline by OTP (Step 12) before the order can be confirmed, so the cart survives — verification never leaves the page.
+- `POST /api/orders` requires the verified-phone token from Step 12 and rejects the order if the token's phone does not match the phone on the form. It then recalculates every price from the database, copies item names and prices into OrderItems, and saves in one transaction; the button is disabled while submitting to stop duplicates.
+- Order confirmation page showing the order number. A customer sees past orders by re-verifying the same phone — there is no My orders page behind a login.
+- Admin orders list filtered by status with a status change action.
 
-Decide: delivery charge rules; whether the admin gets a notification for new orders. **Done when:** a viewer places an order on the live site, the admin moves it to Confirmed, and the viewer sees the new status.
+Decide: delivery charge rules; whether the admin gets a notification for new orders; how long a verified-phone token lasts before re-verification is required. **Done when:** a customer places an order on the live site without an account, the admin moves it to Confirmed, and the customer sees the new status after verifying the phone.
 
 ### Step 10 — Hardening and CI/CD
 Needs: Steps 7 and 9.
 - GitHub Actions on every pull request: `dotnet build`, `dotnet test`, web lint and build *(already in place)*. Hosts deploy main automatically; Vercel adds preview builds per PR.
-- Rate limiting on sign-in and order endpoints, validation on every input, security headers, Serilog logging to the host console.
+- Rate limiting on sign-in, OTP and order endpoints, validation on every input, security headers, Serilog logging to the host console. *(The OTP caps themselves ship with Step 12; this step is where they get reviewed end to end.)*
 - Database backup routine (scheduled `pg_dump` from a GitHub Action, or the provider's restore window) and one test restore.
 - A friendly waking-up message in the UI for the free host's cold start *(basic version in `HealthStatus`)*; an uptime monitor on `/health`.
 
@@ -199,6 +211,17 @@ Needs: Step 9. Parallel with Step 10.
 
 **Done when:** someone new can understand the project from the README in two minutes and place a test order.
 
+### Step 12 — Phone verification (OTP)
+Needs: Step 1. Runs in wave 5 alongside Steps 7 and 8; Step 9 depends on it. Added 2026-10-21 — this replaces customer sign-in, which is why Step 3 is now admin-only.
+- `POST /api/phone/otp` takes a phone number, normalises it to E.164 (`+8801XXXXXXXXX`), stores a **hashed** 6-digit code with a short TTL (5 minutes by default) and sends it by SMS. Sending a new code invalidates any live one for that phone.
+- `POST /api/phone/verify` takes the phone and the code, checks the hash in constant time, marks the row consumed and returns a short-lived verified-phone JWT — signed with the same `Jwt__Key`, carrying a `phone` claim and **no role**, so it can never reach an admin endpoint.
+- Abuse limits are the substance of this step, not a nice-to-have: max 5 attempts per code, capped sends per phone per hour and per day, a per-IP rate limit, and responses that reveal nothing beyond "sent" / "invalid or expired". The code never appears in a response, a log or an error message.
+- The send sits behind an `ISmsSender` interface. The development implementation writes the code to the log instead of sending it, so local work and CI need no provider account and burn no credit.
+- Frontend: phone field with a Bangladeshi format mask, an inline Send code / Enter code panel on the checkout page, a resend countdown, and clear expired/wrong-code states.
+- Consumed and expired rows are pruned (periodic job or on write) so the table does not grow forever.
+
+Decide: SMS provider; OTP TTL and the exact send caps; verified-phone token lifetime; whether the same token is reused for order lookup. **Done when:** a real phone receives a code on the live site, a wrong or expired code is rejected, the caps hold under repeated sends, and a verified phone can place an order.
+
 ## Credentials and configuration
 
 Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.local` (web); in production set host environment variables.
@@ -208,8 +231,11 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | `ConnectionStrings__Default` | Neon pooled connection string, `sslmode=require` | API (Step 1) | Yes |
 | `Jwt__Key` | Self-generated, 32+ random bytes | API (Step 3) | Yes |
 | `Google__ClientId` / `VITE_GOOGLE_CLIENT_ID` | Google Cloud OAuth Web client | API and web (Step 3) | No |
-| `Cloudinary__CloudName`, `__ApiKey`, `__ApiSecret` | Cloudinary dashboard | API (Step 5) | `ApiSecret` yes |
-| `Admin__Emails` | Your admin Gmail address(es) | API (Step 3) | Keep out of git |
+| `Cloudinary__CloudName`, `__ApiKey`, `__ApiSecret` | Cloudinary dashboard; cloud name `mxtqngum` | API (Step 5) | `ApiSecret` yes |
+| `Cloudinary__Folder` | Self-chosen upload folder; defaults to `rongtuli/products`, locally `rongtuli/dev/products` | API (Step 5) | No |
+| `Admin__Emails` | The two admin Gmail addresses | API (Step 3) | Keep out of git |
+| `Sms__Provider`, `Sms__ApiKey`, `Sms__SenderId` | SMS gateway account — provider not chosen yet | API (Step 12) | `ApiKey` yes |
+| `Otp__TtlMinutes`, `Otp__MaxAttempts`, `Otp__MaxSendsPerHour` | Self-chosen tuning, non-secret | API (Step 12) | No |
 | `Cors__Origins__0` | Vercel URL | API | No |
 | `VITE_API_URL` | Render URL | Web | No |
 | `DATABASE_URL` (Actions secret) | Neon, ideally a read-only role | Backup job (Step 10) | Yes |
@@ -223,8 +249,10 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | Free quotas or terms change | Service stops or starts billing | Re-check limits in Step 0 and every few months; avoid adding a card where you can |
 | Database pauses or hits its storage cap | Site errors | Neon scales back up on request; keep images out of the database; small backups via GitHub Actions |
 | Image storage and bandwidth quota | Images stop loading | Max 5 images, browser-side size limit, Cloudinary `f_auto` and `q_auto` |
-| Fake cash-on-delivery orders | Wasted deliveries | Sign-in required, rate limits, a confirmation call before shipping, admin can cancel |
-| Google consent screen left in Testing | Only listed test users can sign in | Publish the consent screen; check whether Google asks for verification |
+| Fake cash-on-delivery orders | Wasted deliveries | Phone verified by OTP before the order is accepted (Step 12), rate limits, a confirmation call before shipping, admin can cancel |
+| Google consent screen left in Testing | Only the listed test users can sign in — the two admins, which is all this project needs | Add both admin emails as test users; publishing is optional now that customers don't sign in |
+| OTP abuse / SMS pumping | A burst of sends drains SMS credit or runs up a bill | Caps per phone, per IP and per day; one live code per phone; hashed codes; nothing sensitive in responses or logs; watch the send rate |
+| SMS is not free in Bangladesh | Every order costs real money per message, and free tiers are thin or absent | Prepaid credit with no auto-billing; the dev sender covers local and CI; a manual confirmation call is the fallback if credit runs out |
 
 ## Open decisions
 
@@ -232,7 +260,11 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 |---|---|---|---|
 | Keep a separate .NET API, or all-JavaScript on Vercel functions | Step 0 | Keep .NET | Keeping .NET |
 | Backend host | Step 0 | Render free web service with Docker | **Settled: Render** (2026-10-18), account open and deployed. Sleeps after 15 min idle; move the backend to a paid instance before real sales |
-| Can viewers browse and fill the cart without signing in | Step 3 | Yes; sign-in only at checkout | **Settled: yes** (2026-10-18). Browsing, the cart and `/api/cart/quote` are all anonymous; Step 9 puts the sign-in gate at checkout |
+| Can viewers browse and fill the cart without signing in | Step 3 | Yes; sign-in only at checkout | **Settled: yes** (2026-10-18, revised 2026-10-21). Browsing, the cart and `/api/cart/quote` are anonymous, and checkout is now gated on a phone OTP rather than a sign-in |
+| How customers identify themselves | Step 3 | — | **Settled: phone OTP, no accounts** (2026-10-21). Google SSO is for the two admins only |
+| SMS provider for OTP | Step 12 | A prepaid Bangladeshi gateway with an HTTP API | **Open — blocks the live test of Step 12, not the code** (the dev sender logs the code) |
+| Verified-phone token lifetime | Step 12 | 30 minutes, re-verify afterwards | Open |
+| How a customer sees past orders without an account | Step 9 | Lookup by re-verifying the same phone | Open |
 | Token storage | Step 3 | Bearer JWT, short expiry, re-login on expiry | Open |
 | Currency and price format | Step 4 | Bangladeshi taka, whole numbers | **Settled** (2026-10-18). Columns stay `numeric(12,2)`; `formatTaka` shows `৳` with grouped thousands and decimals only when a price has them |
 | Clothing sizes | Step 4 | A size list per product, no per-size stock | `text[]` on Product |
@@ -264,3 +296,6 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | 2026-10-18 | Steps 6 and 8 done on `feature/storefront-ui-and-cart`. Storefront: design tokens with automatic dark mode, category menu, product grid, sort and paging in the URL, product page with gallery and size picker, skeletons and empty states. Cart: localStorage store behind `useCart`, header badge, cart page, and a new `POST /api/cart/quote`. Settled four open decisions (price format, cart state, client-only cart, anonymous browsing). Added vitest to the web app (34 tests) and 17 API tests, 53 in total. |
 | 2026-10-18 | Added `CartQueries.ProductsForQuote` with tests that compile it against the Npgsql provider via `ToQueryString`. The endpoint tests use the in-memory provider, which accepts projections PostgreSQL would reject — the `text[]` `Sizes` column made that a real risk. |
 | 2026-10-18 | Removed the unused scaffold sprite `web/public/icons.svg` and replaced the scaffold favicon with a RongTuli mark in the new palette. |
+| 2026-10-21 | Step 0: Cloudinary account created (cloud name `mxtqngum`, Root API key) and `Cloudinary__CloudName/__ApiKey/__ApiSecret` set on Render; `rongtuli/products` created in the Media Library. Local user-secrets deferred to the day Step 5 starts. Step 5 is unblocked; the Google OAuth client is now the only remaining 🔒 item. |
+| 2026-10-21 | Plan change: customers no longer sign in. Google SSO (Step 3) is now admin-only for the two admin emails, and checkout is gated on a phone number verified by OTP — new **Step 12 — Phone verification (OTP)**, which runs in wave 5 and blocks Step 9. Added the `PhoneVerification` entity, a nullable `Order.UserId` with `CustomerName`, `Sms__*` and `Otp__*` settings, OTP-abuse and SMS-cost risks, and five open decisions (SMS provider, token lifetime, order lookup, customer identity, consent-screen publishing). Existing step numbers were not shifted. |
+| 2026-10-21 | Step 5 code done on `feature/product-image-upload`: signed direct-to-Cloudinary upload behind `IImageStore` (faked in tests, so CI needs no account), add / delete / reorder endpoints under `/api/admin/products/{id}/images`, the five-image cap enforced before signing and on save, a duplicate-public-ID guard, and the rule that a product needs an image before it can be activated (which also makes every new product a draft, so three catalog tests were updated). Deletes call Cloudinary first and answer 502 if it is unreachable, leaving the catalog untouched. Web: `lib/cloudinary.ts` URL transforms wired into `ProductThumb` (`src` plus a `srcSet` ladder, `c_limit,f_auto,q_auto`) and `services/images.ts` for the browser-side type/size check and the direct upload. 24 new API tests (77 total) and 15 new web tests (49 total). `Cloudinary__Folder` added so development uploads land under their own prefix. Added `Microsoft.Extensions.Http.Resilience` for the typed Cloudinary client's timeout and retries. Still open: driving it from the live site, which needs the Step 7 admin UI. |
