@@ -10,7 +10,7 @@ public sealed class UnreachableDatabaseApiFactory : WebApplicationFactory<Progra
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseSetting(
+        builder.UseAuthSettings().UseSetting(
             "ConnectionStrings:Default",
             "Host=127.0.0.1;Port=1;Database=unused;Username=u;Password=p;Timeout=2");
     }
