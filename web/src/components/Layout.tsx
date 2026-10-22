@@ -26,6 +26,12 @@ export function Layout() {
           </Link>
 
           <nav aria-label="Account and cart" className="flex items-center gap-1">
+            <Link
+              to="/orders"
+              className={`${focusRing} rounded-full px-3 py-2 text-sm font-medium transition hover:bg-sunken`}
+            >
+              Orders
+            </Link>
             <CartBadge />
             <AdminBadge />
           </nav>

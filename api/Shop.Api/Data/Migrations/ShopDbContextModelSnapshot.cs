@@ -105,6 +105,15 @@ namespace Shop.Api.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<decimal>("DeliveryFee")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("DeliveryZone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -132,6 +141,8 @@ namespace Shop.Api.Data.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("Phone", "CreatedAt");
+
                     b.ToTable("Order", (string)null);
                 });
 
@@ -158,7 +169,6 @@ namespace Shop.Api.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("Size")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 

@@ -134,6 +134,23 @@ export function apiPutAsAdmin<T>(
   return request<T>(path, jsonInit('PUT', body, signal), token)
 }
 
+/**
+ * A customer's calls carry the verified-phone token from phone verification. It proves the phone
+ * and nothing else, so it opens that phone's orders and no admin endpoint.
+ */
+export function apiGetAsCustomer<T>(path: string, token: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { signal }, token)
+}
+
+export function apiPostAsCustomer<T>(
+  path: string,
+  body: unknown,
+  token: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return request<T>(path, jsonInit('POST', body, signal), token)
+}
+
 export function apiDeleteAsAdmin(path: string, token: string, signal?: AbortSignal): Promise<void> {
   return request<void>(path, { method: 'DELETE', signal }, token)
 }
