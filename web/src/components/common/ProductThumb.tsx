@@ -1,3 +1,4 @@
+import { imageSrcSet, imageUrl } from '../../lib/cloudinary'
 import { initialsOf } from '../../lib/format'
 
 type ProductThumbProps = {
@@ -7,8 +8,10 @@ type ProductThumbProps = {
   className?: string
   /** `eager` for the one image above the fold, `lazy` for everything in a grid. */
   loading?: 'eager' | 'lazy'
-  /** Candidate widths for the browser to choose from once Cloudinary serves the images. */
+  /** How much of the viewport the image takes, so the browser can pick a width from `srcSet`. */
   sizes?: string
+  /** Widths worth offering for this box; the default ladder suits a grid or gallery image. */
+  widths?: readonly number[]
 }
 
 export function ProductThumb({
@@ -17,12 +20,14 @@ export function ProductThumb({
   className = 'aspect-[4/5]',
   loading = 'lazy',
   sizes,
+  widths,
 }: ProductThumbProps) {
   return (
     <div className={`relative overflow-hidden bg-sunken ${className}`}>
       {url ? (
         <img
-          src={url}
+          src={imageUrl(url)}
+          srcSet={imageSrcSet(url, widths)}
           alt={name}
           loading={loading}
           decoding="async"
@@ -30,7 +35,7 @@ export function ProductThumb({
           className="h-full w-full object-cover"
         />
       ) : (
-        // Step 5 adds real photography; until then the initials keep the grid even.
+        // A product with no photograph yet: the initials keep the grid even.
         <div
           aria-hidden="true"
           className="flex h-full w-full items-center justify-center bg-accent-soft"

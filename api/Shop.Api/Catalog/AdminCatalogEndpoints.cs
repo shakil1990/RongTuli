@@ -125,7 +125,7 @@ public static class AdminCatalogEndpoints
 
         group.MapPost("/", async (ProductRequest request, ShopDbContext db, CancellationToken ct) =>
         {
-            var errors = await ValidateAsync(db, request, ct);
+            var errors = await ValidateAsync(db, request, productId: null, ct);
             if (errors.Count > 0)
             {
                 return Results.ValidationProblem(errors);
@@ -147,7 +147,7 @@ public static class AdminCatalogEndpoints
         // The slug is kept on rename so shared links keep working.
         group.MapPut("/{id:int}", async (int id, ProductRequest request, ShopDbContext db, CancellationToken ct) =>
         {
-            var errors = await ValidateAsync(db, request, ct);
+            var errors = await ValidateAsync(db, request, id, ct);
             if (errors.Count > 0)
             {
                 return Results.ValidationProblem(errors);
@@ -183,7 +183,7 @@ public static class AdminCatalogEndpoints
     }
 
     private static async Task<Dictionary<string, string[]>> ValidateAsync(
-        ShopDbContext db, ProductRequest request, CancellationToken ct)
+        ShopDbContext db, ProductRequest request, int? productId, CancellationToken ct)
     {
         var errors = CatalogValidation.Validate(request);
         if (errors.Count == 0 && !await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct))
@@ -191,8 +191,18 @@ public static class AdminCatalogEndpoints
             errors["categoryId"] = ["Category does not exist."];
         }
 
+        // A draft may have no photographs, but nothing reaches the storefront unillustrated,
+        // which also means a brand new product is always created as a draft.
+        if (errors.Count == 0 && request.IsActive == true && !await HasImageAsync(db, productId, ct))
+        {
+            errors["isActive"] = ["A product needs at least one image before it can be activated."];
+        }
+
         return errors;
     }
+
+    private static async Task<bool> HasImageAsync(ShopDbContext db, int? productId, CancellationToken ct) =>
+        productId is int id && await db.ProductImages.AnyAsync(image => image.ProductId == id, ct);
 
     private static void Apply(Product product, ProductRequest request)
     {
