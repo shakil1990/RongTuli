@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Google.Apis.Auth;
 using Microsoft.Extensions.Options;
 
@@ -6,7 +7,7 @@ namespace Shop.Api.Security;
 /// <summary>
 /// Verifies ID tokens against Google's published signing keys, which the library fetches and caches.
 /// </summary>
-internal sealed partial class GoogleTokenVerifier : IGoogleTokenVerifier
+public sealed partial class GoogleTokenVerifier : IGoogleTokenVerifier
 {
     private readonly ILogger<GoogleTokenVerifier> _logger;
     private readonly string _clientId;
@@ -36,7 +37,14 @@ internal sealed partial class GoogleTokenVerifier : IGoogleTokenVerifier
                 idToken,
                 new GoogleJsonWebSignature.ValidationSettings { Audience = [_clientId] });
         }
-        catch (InvalidJwtException exception)
+        // The token is whatever an anonymous caller posted, so every way it can be malformed is a
+        // rejection, not a fault: the library reports a bad audience, signature or expiry as
+        // InvalidJwtException, but an empty or garbled token surfaces as an argument or decoding
+        // failure instead.
+        // Anything else — Google being unreachable, say — is left to propagate, because telling
+        // an admin their sign-in was invalid would send them looking in the wrong place.
+        catch (Exception exception)
+            when (exception is InvalidJwtException or ArgumentException or FormatException or JsonException)
         {
             LogRejectedToken(exception);
             return null;

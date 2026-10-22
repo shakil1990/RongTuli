@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
+import { AdminBadge } from './AdminBadge'
 import { CartBadge } from './CartBadge'
 import { CategoryMenu } from './CategoryMenu'
 import { HealthStatus } from './HealthStatus'
@@ -26,16 +27,7 @@ export function Layout() {
 
           <nav aria-label="Account and cart" className="flex items-center gap-1">
             <CartBadge />
-            {/* Wired up in Step 3, once the Google OAuth client exists. */}
-            <button
-              type="button"
-              disabled
-              title="Sign in is coming soon"
-              aria-label="Sign in, coming soon"
-              className="rounded-full border border-line px-4 py-2 text-sm text-muted opacity-60"
-            >
-              Sign in
-            </button>
+            <AdminBadge />
           </nav>
         </div>
 

@@ -15,23 +15,73 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, { signal })
+/**
+ * The API answers failures with RFC 7807 problem details, and its `detail` is written to be read
+ * by a person — "This Google account is not a RongTuli admin." — so it is preferred over a
+ * status-code sentence whenever one is there.
+ */
+async function failureMessage(response: Response, path: string): Promise<string> {
+  const fallback = `Request to ${path} failed with status ${response.status}`
+  try {
+    const problem: unknown = await response.json()
+    if (typeof problem === 'object' && problem !== null) {
+      const detail = (problem as Record<string, unknown>).detail
+      if (typeof detail === 'string' && detail.length > 0) return detail
+    }
+  } catch {
+    // An error response with no JSON body is normal; the status still says enough.
+  }
+  return fallback
+}
+
+async function request<T>(path: string, init: RequestInit, token?: string | null): Promise<T> {
+  const headers = new Headers(init.headers)
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const response = await fetch(`${apiUrl}${path}`, { ...init, headers })
   if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed with status ${response.status}`)
+    throw new ApiError(response.status, await failureMessage(response, path))
   }
   return (await response.json()) as T
 }
 
-export async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
+export function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { signal })
+}
+
+export function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
   })
-  if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed with status ${response.status}`)
-  }
-  return (await response.json()) as T
+}
+
+/**
+ * Admin calls are kept separate rather than reading a token from module state, so every request
+ * that depends on being signed in says so where it is written. Step 7's admin panel uses these.
+ */
+export function apiGetAsAdmin<T>(path: string, token: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { signal }, token)
+}
+
+export function apiPostAsAdmin<T>(
+  path: string,
+  body: unknown,
+  token: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return request<T>(
+    path,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    },
+    token,
+  )
 }
