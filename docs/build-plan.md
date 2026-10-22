@@ -10,14 +10,14 @@ Status legend: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs you
 
 | Step | Title | Status | Notes |
 |---|---|---|---|
-| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. All accounts open (Vercel, Neon, Render, Cloudinary). The Google OAuth client is the only 🔒 item left. |
+| 0 | Accounts and repo setup | 🟡 | Repo, README, CI workflow done. All accounts open (Vercel, Neon, Render, Cloudinary). Google OAuth client created (project `rongtuli`, consent screen in Testing with both admins as test users). No billing account needed. |
 | 1 | Backend skeleton (.NET API) | ✅ | Code done: EF Core + Npgsql, entities, `InitialCreate` migration, seed categories, DB-checking `/health`. Left: env-var config for Jwt/Google/Cloudinary/Admin (added by Steps 3 and 5). Deployed to Render (https://rongtuliapi.onrender.com), `/health` healthy against Neon. |
 | 2 | Frontend skeleton (React) | ✅ | Vite + TS + Tailwind, router with all routes, layout, API client, TanStack Query, `vercel.json` done; lint and build verified. Deployed to Vercel at https://rong-tuli-peach.vercel.app. Live site shows the API health status (`VITE_API_URL` set to the Render URL). Category menu and cart count added in Steps 6 and 8. |
-| 3 | Google SSO (admin sign-in) | ⬜ | Admin-only — customers never sign in (Step 12). Needs Google OAuth client 🔒 |
+| 3 | Google SSO (admin sign-in) | 🟡 | Code done on `feature/google-sso`: `POST /api/auth/google`, JWT bearer, `GET /api/me`, React auth context, `RequireAdmin` on `/admin/*`. 18 new tests (95 API, 63 web). Left: set the env vars on Render and Vercel and sign in on the live site. |
 | 4 | Catalog API | ✅ | Public and admin endpoints with 24 new integration tests (36 total passing); public endpoints verified against Neon. Admin endpoints answer 401 until Step 3 adds JWT sign-in. |
 | 5 | Product image upload | 🟡 | Code done: signed direct upload behind `IImageStore`, add/delete/reorder endpoints, the 5-image cap, the no-image-no-activation rule, and Cloudinary URL transforms on the storefront. Left: drive it from the live site, which needs Step 7. |
 | 6 | Storefront UI | ✅ | Design tokens with dark mode, category menu, grid, sort and paging in the URL, product page with gallery and size picker. Images now served through Cloudinary transforms (Step 5); the initials placeholder covers a product with no photograph. |
-| 7 | Admin panel UI | ⬜ | The image manager builds on Step 5's endpoints and `web/src/services/images.ts`; fetching an upload ticket needs the bearer token from Step 3. |
+| 7 | Admin panel UI | ⬜ | The image manager builds on Step 5's endpoints and `web/src/services/images.ts`; fetching an upload ticket uses `apiGetAsAdmin`/`apiPostAsAdmin` with the bearer token from `useAuth` (Step 3, done). |
 | 8 | Cart | ✅ | localStorage cart behind `useCart`, header badge, cart page, and `POST /api/cart/quote` re-pricing with unavailable/price-changed/size flags. 34 web unit tests, 17 new API tests. |
 | 9 | Checkout and orders (COD) | ⬜ | Gated on a phone verified by OTP (Step 12), not on an account |
 | 10 | Hardening and CI/CD | ⬜ | CI for build/test/lint already runs on PRs |
@@ -91,7 +91,7 @@ Step 12 adds a migration: the `PhoneVerification` table, `Order.UserId` becomes 
 Needs: nothing.
 - [x] Create the public GitHub monorepo with `api/` and `web/` folders and a README stub.
 - [x] 🔒 Open accounts: Vercel (linked to GitHub), Neon, Render and Cloudinary. Cloudinary cloud name `mxtqngum`; the Root API key and secret are set as `Cloudinary__CloudName/__ApiKey/__ApiSecret` on Render. Local user-secrets added when Step 5 started, with `Cloudinary:Folder` pointed at `rongtuli/dev/products` so development uploads stay out of the production folder.
-- [ ] 🔒 Google Cloud: OAuth consent screen and a Web OAuth client ID; add `http://localhost:5173` and the Vercel domain as authorized JavaScript origins.
+- [x] 🔒 Google Cloud: project `rongtuli`, consent screen (External, Testing, both admins as test users) and a Web OAuth client ID with `http://localhost:5173` and `https://rong-tuli-peach.vercel.app` as authorized JavaScript origins and no redirect URIs. No billing account or card is needed for any of it. Vercel preview URLs cannot be authorized (changing hostnames, no wildcards), so sign-in works on localhost and the production domain only.
 - [ ] 🔒 Keep every key and connection string in a password manager, never in the repo.
 - [x] CI workflow (`.github/workflows/CI.yml`) builds and tests the API and lints and builds the web app. *(Merged in PR #5 after being held out of the Step 1 PR.)*
 
@@ -101,7 +101,7 @@ Decide: backend host (Render vs Azure F1); whether to keep a .NET API at all. **
 Needs: Step 0. Parallel with Step 2.
 - [x] `dotnet new webapi`, EF Core with Npgsql, entities above, first migration (`Data/Migrations/*_InitialCreate`).
 - [x] `ConnectionStrings__Default` read from configuration (fails fast with a clear message if missing).
-- [ ] Remaining settings read from environment variables: `Jwt__Key`, `Google__ClientId`, `Admin__Emails` — bound by Step 3 when they are first used. `Cloudinary__*` is bound (Step 5), and is checked when the image store is first used rather than at startup, so the API still boots without image credentials.
+- [x] Remaining settings read from environment variables: `Jwt__Key`, `Google__ClientId`, `Admin__Emails` — bound in Step 3. `Jwt__Key` is validated at startup and stops the API if missing, because the bearer scheme needs it for the first request; `Google__ClientId` is checked when sign-in is first used. `Cloudinary__*` is bound (Step 5), and is checked when the image store is first used rather than at startup, so the API still boots without image credentials.
 - [x] CORS, ProblemDetails, OpenAPI in development.
 - [x] `/health` checks the database: 200 `{"status":"healthy"}` or 503 `{"status":"unhealthy"}`.
 - [x] Seed categories (Men, Women, Kids, Accessories) via migration data.
@@ -125,12 +125,16 @@ Decided: plain Tailwind, no component kit; cart state in a React context (Step 8
 
 ### Step 3 — Google SSO (admin sign-in)
 Needs: Steps 1 and 2. **Admin-only.** Customers never sign in — they verify a phone number instead (Step 12), so nothing in the shopping flow depends on this step.
-- Frontend: `@react-oauth/google` sign-in button, reachable from `/admin` rather than advertised on the storefront.
-- API: `POST /api/auth/google` validates the token with `GoogleJsonWebSignature.ValidateAsync` (audience = your client ID), upserts the user, sets the Admin role from the `Admin__Emails` allowlist (two addresses for now), returns a short-lived JWT.
-- A Google account that is not on the allowlist is rejected: there is nothing for a signed-in non-admin to do in v1.
-- Admin authorization policy (stubbed in `Security/AdminAuthorization.cs` — swap the placeholder scheme for JWT bearer; the `Admin` policy itself needs no change), `GET /api/me`, auth context in React, protected routes, sign-out.
+- [x] Frontend: `@react-oauth/google` sign-in button on `/admin` (`components/AdminSignIn.tsx`), not advertised on the storefront — the header's disabled Sign in button is gone, replaced by `AdminBadge`, which shows the signed-in admin and a Sign out only once there is one.
+- [x] API: `POST /api/auth/google` validates the token with `GoogleJsonWebSignature.ValidateAsync` (audience = the client ID), upserts the user, sets the Admin role from the `Admin__Emails` allowlist, returns the JWT. The role is re-read from configuration on every sign-in, so removing an address takes effect without a database edit.
+- [x] A Google account that is not on the allowlist is recorded as a Viewer but gets **403 from the sign-in itself** and no token, so it never reaches an admin endpoint (which answer 401 without one). This replaces the original "403 from admin endpoints" wording, which could not happen once sign-in is refused.
+- [x] Admin authorization policy switched from the placeholder scheme to JWT bearer in `Security/AdminAuthorization.cs` (the `Admin` policy itself unchanged), `GET /api/me`, auth context in React (`web/src/auth/`), `RequireAdmin` on `/admin/*`, sign-out.
+- [x] 18 new tests (95 API, 63 web). `ShopApiFactory(useRealAuthentication: true)` runs the sign-in tests against the real bearer scheme, so a test signs in and then uses the token it was issued.
+- [ ] Verify on the live site once `Jwt__Key`, `Google__ClientId` and `Admin__Emails__0/1` are set on Render and `VITE_GOOGLE_CLIENT_ID` on Vercel.
 
-Decide: bearer token in memory/localStorage (simplest across vercel.app and the API domain) or an httpOnly cookie (needs SameSite=None and Secure); refresh tokens or re-login on expiry. **Done when:** you sign in on the live site, both admin emails see the Admin menu, and a non-allowlisted Google account gets 403 from admin endpoints.
+**Settled:** bearer JWT in `localStorage`, 8-hour expiry, no refresh tokens; re-login afterwards. **Done when:** you sign in on the live site, both admin emails reach the admin panel, and a non-allowlisted Google account is refused at sign-in.
+
+⚠️ `Jwt__Key` is the one setting the API cannot start without — the bearer scheme needs it to validate the first request, so unlike `Cloudinary__*` and `Google__ClientId` it is not checked lazily. Set it on Render **before** this branch reaches `develop`, or the service fails its health check on deploy.
 
 ### Step 4 — Catalog API
 Needs: Step 1. Can run alongside Step 3.
@@ -229,7 +233,7 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | Setting | Source | Used by | Secret? |
 |---|---|---|---|
 | `ConnectionStrings__Default` | Neon pooled connection string, `sslmode=require` | API (Step 1) | Yes |
-| `Jwt__Key` | Self-generated, 32+ random bytes | API (Step 3) | Yes |
+| `Jwt__Key` | Self-generated, 32+ random bytes, base64 (`openssl rand -base64 32`) | API (Step 3) — **required at startup** | Yes |
 | `Google__ClientId` / `VITE_GOOGLE_CLIENT_ID` | Google Cloud OAuth Web client | API and web (Step 3) | No |
 | `Cloudinary__CloudName`, `__ApiKey`, `__ApiSecret` | Cloudinary dashboard; cloud name `mxtqngum` | API (Step 5) | `ApiSecret` yes |
 | `Cloudinary__Folder` | Self-chosen upload folder; defaults to `rongtuli/products`, locally `rongtuli/dev/products` | API (Step 5) | No |
@@ -265,7 +269,7 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | SMS provider for OTP | Step 12 | A prepaid Bangladeshi gateway with an HTTP API | **Open — blocks the live test of Step 12, not the code** (the dev sender logs the code) |
 | Verified-phone token lifetime | Step 12 | 30 minutes, re-verify afterwards | Open |
 | How a customer sees past orders without an account | Step 9 | Lookup by re-verifying the same phone | Open |
-| Token storage | Step 3 | Bearer JWT, short expiry, re-login on expiry | Open |
+| Token storage | Step 3 | Bearer JWT, short expiry, re-login on expiry | **Settled: the default** (2026-10-22). Bearer JWT in `localStorage`, 8-hour lifetime, no refresh tokens; the web client drops the token and re-shows Sign in on any 401. A cookie was rejected because the web app and API sit on different sites (`vercel.app` / `onrender.com`), needing `SameSite=None; Secure` and credentialed CORS |
 | Currency and price format | Step 4 | Bangladeshi taka, whole numbers | **Settled** (2026-10-18). Columns stay `numeric(12,2)`; `formatTaka` shows `৳` with grouped thousands and decimals only when a price has them |
 | Clothing sizes | Step 4 | A size list per product, no per-size stock | `text[]` on Product |
 | Stock tracking | Step 4 | In-stock flag only | Open |
@@ -299,3 +303,5 @@ Nothing is committed. Locally use `dotnet user-secrets` (API) and `web/.env.loca
 | 2026-10-21 | Step 0: Cloudinary account created (cloud name `mxtqngum`, Root API key) and `Cloudinary__CloudName/__ApiKey/__ApiSecret` set on Render; `rongtuli/products` created in the Media Library. Local user-secrets deferred to the day Step 5 starts. Step 5 is unblocked; the Google OAuth client is now the only remaining 🔒 item. |
 | 2026-10-21 | Plan change: customers no longer sign in. Google SSO (Step 3) is now admin-only for the two admin emails, and checkout is gated on a phone number verified by OTP — new **Step 12 — Phone verification (OTP)**, which runs in wave 5 and blocks Step 9. Added the `PhoneVerification` entity, a nullable `Order.UserId` with `CustomerName`, `Sms__*` and `Otp__*` settings, OTP-abuse and SMS-cost risks, and five open decisions (SMS provider, token lifetime, order lookup, customer identity, consent-screen publishing). Existing step numbers were not shifted. |
 | 2026-10-21 | Step 5 code done on `feature/product-image-upload`: signed direct-to-Cloudinary upload behind `IImageStore` (faked in tests, so CI needs no account), add / delete / reorder endpoints under `/api/admin/products/{id}/images`, the five-image cap enforced before signing and on save, a duplicate-public-ID guard, and the rule that a product needs an image before it can be activated (which also makes every new product a draft, so three catalog tests were updated). Deletes call Cloudinary first and answer 502 if it is unreachable, leaving the catalog untouched. Web: `lib/cloudinary.ts` URL transforms wired into `ProductThumb` (`src` plus a `srcSet` ladder, `c_limit,f_auto,q_auto`) and `services/images.ts` for the browser-side type/size check and the direct upload. 24 new API tests (77 total) and 15 new web tests (49 total). `Cloudinary__Folder` added so development uploads land under their own prefix. Added `Microsoft.Extensions.Http.Resilience` for the typed Cloudinary client's timeout and retries. Still open: driving it from the live site, which needs the Step 7 admin UI. |
+| 2026-10-22 | Step 3 decision settled: token storage stays the plan default — bearer JWT in `localStorage`, 8-hour expiry, re-login afterwards. Confirmed the Google OAuth client needs no billing account or card: the consent screen, the Web client ID and Google Identity Services sign-in are all free and unmetered, so the only real money in the project remains the Step 12 SMS credit. Noted that Vercel preview deployments cannot be authorized JavaScript origins (changing hostnames, no wildcard support), so admin sign-in works on localhost and the production Vercel domain only. |
+| 2026-10-22 | Step 3 code done on `feature/google-sso`. API: `POST /api/auth/google` verifies the Google ID token against the configured client, upserts the user, reads the role from `Admin__Emails` on every sign-in, and issues an 8-hour JWT; `GET /api/me`; `Security/AdminAuthorization.cs` swapped from the placeholder scheme to JWT bearer with inbound claim mapping off. A non-allowlisted account is recorded as a Viewer and refused at sign-in with 403 rather than being given a token — the original "403 from admin endpoints" could not happen, since such an account never gets one. Web: `web/src/auth/` (context, provider, localStorage session), the Google button on `/admin` behind `RequireAdmin`, `AdminBadge` replacing the header's disabled Sign in button, and `apiGetAsAdmin`/`apiPostAsAdmin` for Step 7. 18 new tests (95 API, 63 web), including a real-bearer-scheme factory that signs in and reuses the issued token. A smoke test against the real startup path caught the verifier answering 500 for a forged token — `GoogleJsonWebSignature.ValidateAsync` fails base64 decoding before it reports an invalid JWT — which the faked-out API tests could not see; now covered by `GoogleTokenVerifierTests`. |
