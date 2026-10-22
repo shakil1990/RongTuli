@@ -10,6 +10,7 @@ import { RequireAdmin } from './components/RequireAdmin'
 import { AdminLayout } from './components/admin/AdminLayout'
 import { CartPage } from './pages/CartPage'
 import { CategoryPage } from './pages/CategoryPage'
+import { CheckoutPage } from './pages/CheckoutPage'
 import { HomePage } from './pages/HomePage'
 import { Placeholder } from './pages/Placeholder'
 import { ProductPage } from './pages/ProductPage'
@@ -49,7 +50,7 @@ export default function App() {
                   <Route path="/c/:slug" element={<CategoryPage />} />
                   <Route path="/p/:slug" element={<ProductPage />} />
                   <Route path="/cart" element={<CartPage />} />
-                  <Route path="/checkout" element={<Placeholder title="Checkout" />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/orders" element={<Placeholder title="My orders" />} />
                   <Route
                     path="/admin"

@@ -13,4 +13,7 @@ public static class ClaimNames
     public const string Name = "name";
 
     public const string Role = "role";
+
+    /// <summary>An OTP-verified phone in E.164, the only claim a verified-phone token carries.</summary>
+    public const string Phone = "phone";
 }

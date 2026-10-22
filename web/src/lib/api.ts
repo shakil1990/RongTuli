@@ -12,16 +12,24 @@ export class ApiError extends Error {
   readonly status: number
   /** Present on a 400 validation problem, so a form can show each message beside its field. */
   readonly fieldErrors: FieldErrors
+  /** Present on a 429, so the page can count down to when trying again will work. */
+  readonly retryAfterSeconds: number | null
 
-  constructor(status: number, message: string, fieldErrors: FieldErrors = {}) {
+  constructor(
+    status: number,
+    message: string,
+    fieldErrors: FieldErrors = {},
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.fieldErrors = fieldErrors
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
-type Problem = { message: string; fieldErrors: FieldErrors }
+type Problem = { message: string; fieldErrors: FieldErrors; retryAfterSeconds: number | null }
 
 function readFieldErrors(value: unknown): FieldErrors {
   if (typeof value !== 'object' || value === null) return {}
@@ -39,23 +47,29 @@ function readFieldErrors(value: unknown): FieldErrors {
  * The API answers failures with RFC 7807 problem details, and its `detail` is written to be read
  * by a person — "This Google account is not a RongTuli admin." — so it is preferred over a
  * status-code sentence whenever one is there. A validation problem carries no `detail`, only
- * per-field `errors`, so its first message stands in for one.
+ * per-field `errors`, so its first message stands in for one. A 429 also carries
+ * `retryAfterSeconds` in the body, because a cross-origin page cannot read the Retry-After header.
  */
 async function readProblem(response: Response, path: string): Promise<Problem> {
   const fallback = `Request to ${path} failed with status ${response.status}`
   try {
     const problem: unknown = await response.json()
     if (typeof problem === 'object' && problem !== null) {
-      const { detail, errors } = problem as Record<string, unknown>
+      const { detail, errors, retryAfterSeconds } = problem as Record<string, unknown>
       const fieldErrors = readFieldErrors(errors)
       const firstFieldMessage = Object.values(fieldErrors).flat()[0]
       const message = typeof detail === 'string' && detail.length > 0 ? detail : firstFieldMessage
-      return { message: message ?? fallback, fieldErrors }
+      return {
+        message: message ?? fallback,
+        fieldErrors,
+        retryAfterSeconds:
+          typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0 ? retryAfterSeconds : null,
+      }
     }
   } catch {
     // An error response with no JSON body is normal; the status still says enough.
   }
-  return { message: fallback, fieldErrors: {} }
+  return { message: fallback, fieldErrors: {}, retryAfterSeconds: null }
 }
 
 async function request<T>(path: string, init: RequestInit, token?: string | null): Promise<T> {
@@ -66,8 +80,8 @@ async function request<T>(path: string, init: RequestInit, token?: string | null
 
   const response = await fetch(`${apiUrl}${path}`, { ...init, headers })
   if (!response.ok) {
-    const { message, fieldErrors } = await readProblem(response, path)
-    throw new ApiError(response.status, message, fieldErrors)
+    const { message, fieldErrors, retryAfterSeconds } = await readProblem(response, path)
+    throw new ApiError(response.status, message, fieldErrors, retryAfterSeconds)
   }
 
   // A delete answers 204 with no body to parse.
