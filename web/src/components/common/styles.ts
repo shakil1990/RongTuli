@@ -35,3 +35,13 @@ export function buttonClasses(
 
 /** A raised panel: product cards, cart lines, the order summary. */
 export const cardSurface = 'rounded-2xl border border-line bg-raised'
+
+/** Text inputs, selects and textareas in the admin forms. */
+export const fieldControl = `w-full rounded-xl border border-line bg-raised px-3 py-2 text-sm text-ink
+  transition placeholder:text-muted hover:border-accent aria-[invalid=true]:border-warning ${focusRing}`
+
+/** A message shown under a form field, or above a form, when something needs fixing. */
+export const fieldError = 'text-sm text-warning'
+
+/** A sentence-long problem banner, as on the cart and sign-in pages. */
+export const alertBanner = 'rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning'

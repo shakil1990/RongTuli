@@ -9,7 +9,8 @@ public sealed record ProductSummaryDto(
     decimal Price,
     string CategorySlug,
     string? CoverImageUrl,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool IsActive);
 
 public sealed record ProductImageDto(int Id, string Url, int SortOrder);
 

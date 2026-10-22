@@ -15,3 +15,9 @@ export type UploadedImage = {
   url: string
   publicId: string
 }
+
+/**
+ * Mirrors `ImageValidation.MaxImagesPerProduct`. Shown to the admin as "2 of 5" and used to stop
+ * a selection that cannot fit before it uploads; the API still refuses a sixth image on its own.
+ */
+export const MAX_PRODUCT_IMAGES = 5

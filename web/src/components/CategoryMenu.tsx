@@ -24,8 +24,14 @@ export function CategoryMenu() {
   }
 
   return (
-    <nav aria-label="Product categories" className="-mx-1 overflow-x-auto">
-      <ul className="flex items-center gap-1 px-1">
+    // Scrolls sideways by swipe on a narrow phone, without drawing a scrollbar. The padding
+    // leaves room for the links' focus ring, which used to overflow the list vertically and make
+    // the browser draw a vertical scrollbar beside the menu.
+    <nav
+      aria-label="Product categories"
+      className="-mx-1 -my-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
+    >
+      <ul className="flex items-center gap-1 p-1">
         <li>
           <NavLink to="/" end className={linkClasses}>
             Everything

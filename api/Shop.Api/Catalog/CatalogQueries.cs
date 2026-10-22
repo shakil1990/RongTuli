@@ -52,7 +52,8 @@ internal static class CatalogQueries
                 p.Price,
                 p.Category.Slug,
                 p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault(),
-                p.CreatedAt))
+                p.CreatedAt,
+                p.IsActive))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ProductSummaryDto>(items, page, pageSize, totalCount, (totalCount + pageSize - 1) / pageSize);

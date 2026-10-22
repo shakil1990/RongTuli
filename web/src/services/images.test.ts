@@ -2,6 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { UploadTicket } from '../types/images'
 import { imageFileProblem, uploadImage } from './images'
 
+// The admin calls in this module go through the API client, which needs VITE_API_URL to load.
+// The upload itself talks only to the image host, so the client is not exercised here.
+vi.mock('../lib/api', () => ({
+  apiDeleteAsAdmin: vi.fn(),
+  apiPostAsAdmin: vi.fn(),
+  apiPutAsAdmin: vi.fn(),
+}))
+
 const ticket: UploadTicket = {
   uploadUrl: 'https://api.cloudinary.com/v1_1/mxtqngum/image/upload',
   apiKey: '123',
