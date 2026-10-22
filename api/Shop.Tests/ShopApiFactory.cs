@@ -20,7 +20,11 @@ namespace Shop.Tests;
 /// Hosts the API against an in-memory database so tests need no PostgreSQL instance.
 /// Requests that carry the <see cref="AdminHeader"/> header are authenticated as an admin.
 /// </summary>
-public sealed class ShopApiFactory : WebApplicationFactory<Program>
+/// <param name="useRealAuthentication">
+/// When true the real bearer scheme stays in charge, so a test can sign in and then use the token
+/// it was issued. The sign-in tests need that; every other test is faster with the stub header.
+/// </param>
+public sealed class ShopApiFactory(bool useRealAuthentication = false) : WebApplicationFactory<Program>
 {
     public const string AdminHeader = "X-Test-Admin";
 
@@ -30,6 +34,9 @@ public sealed class ShopApiFactory : WebApplicationFactory<Program>
 
     /// <summary>The image host this instance runs against, so a test can inspect or break it.</summary>
     public FakeImageStore ImageStore { get; } = new();
+
+    /// <summary>The stand-in for Google; a test registers the ID tokens it wants to be valid.</summary>
+    public FakeGoogleTokenVerifier GoogleTokens { get; } = new();
 
     public HttpClient CreateAdminClient()
     {
@@ -49,7 +56,7 @@ public sealed class ShopApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseSetting("ConnectionStrings:Default", "Host=localhost;Database=unused");
+        builder.UseAuthSettings().UseSetting("ConnectionStrings:Default", "Host=localhost;Database=unused");
 
         builder.ConfigureServices(services =>
         {
@@ -60,8 +67,14 @@ public sealed class ShopApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IImageStore>();
             services.AddSingleton<IImageStore>(ImageStore);
 
-            services.AddAuthentication(TestScheme)
-                .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestScheme, null);
+            services.RemoveAll<IGoogleTokenVerifier>();
+            services.AddSingleton<IGoogleTokenVerifier>(GoogleTokens);
+
+            if (!useRealAuthentication)
+            {
+                services.AddAuthentication(TestScheme)
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestScheme, null);
+            }
         });
     }
 

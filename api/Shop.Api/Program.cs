@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Shop.Api;
+using Shop.Api.Auth;
 using Shop.Api.Cart;
 using Shop.Api.Catalog;
 using Shop.Api.Images;
@@ -13,8 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddShopData(builder.Configuration);
-builder.Services.AddAdminAuthorization();
+builder.Services.AddAdminAuthorization(builder.Configuration);
 builder.Services.AddImageStore(builder.Configuration);
+builder.Services.AddScoped<GoogleSignIn>();
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
@@ -34,6 +36,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapAdminCatalogEndpoints();
 app.MapProductImageEndpoints();
