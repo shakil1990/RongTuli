@@ -10,6 +10,7 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.ToTable("Order");
 
+        builder.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Phone).HasMaxLength(30).IsRequired();
         builder.Property(x => x.Address).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(1000);
@@ -19,6 +20,7 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasOne(x => x.User)
             .WithMany()
             .HasForeignKey(x => x.UserId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.UserId);

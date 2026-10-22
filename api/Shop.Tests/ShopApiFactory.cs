@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shop.Api.Data;
 using Shop.Api.Images;
+using Shop.Api.Phone;
 using Shop.Api.Security;
 
 namespace Shop.Tests;
@@ -37,6 +38,9 @@ public sealed class ShopApiFactory(bool useRealAuthentication = false) : WebAppl
 
     /// <summary>The stand-in for Google; a test registers the ID tokens it wants to be valid.</summary>
     public FakeGoogleTokenVerifier GoogleTokens { get; } = new();
+
+    /// <summary>Catches the texts the API sends; a test reads codes from it.</summary>
+    public FakeSmsSender Sms { get; } = new();
 
     public HttpClient CreateAdminClient()
     {
@@ -69,6 +73,9 @@ public sealed class ShopApiFactory(bool useRealAuthentication = false) : WebAppl
 
             services.RemoveAll<IGoogleTokenVerifier>();
             services.AddSingleton<IGoogleTokenVerifier>(GoogleTokens);
+
+            services.RemoveAll<ISmsSender>();
+            services.AddSingleton<ISmsSender>(Sms);
 
             if (!useRealAuthentication)
             {

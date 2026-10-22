@@ -5,6 +5,7 @@ using Shop.Api.Auth;
 using Shop.Api.Cart;
 using Shop.Api.Catalog;
 using Shop.Api.Images;
+using Shop.Api.Phone;
 using Shop.Api.Security;
 
 const string CorsPolicy = "Frontend";
@@ -17,6 +18,7 @@ builder.Services.AddShopData(builder.Configuration);
 builder.Services.AddAdminAuthorization(builder.Configuration);
 builder.Services.AddImageStore(builder.Configuration);
 builder.Services.AddScoped<GoogleSignIn>();
+builder.Services.AddPhoneVerification(builder.Configuration, builder.Environment);
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
@@ -25,11 +27,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// First, so everything after it — the per-IP rate limits above all — sees the caller's address.
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -41,6 +46,7 @@ app.MapCatalogEndpoints();
 app.MapAdminCatalogEndpoints();
 app.MapProductImageEndpoints();
 app.MapCartEndpoints();
+app.MapPhoneEndpoints();
 
 // Reports only healthy/unhealthy so the public endpoint never leaks connection details.
 app.MapHealthChecks("/health", new HealthCheckOptions
