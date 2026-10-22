@@ -5,18 +5,20 @@ type PaginationProps = {
   page: number
   totalPages: number
   onChange: (page: number) => void
+  /** What a screen reader calls this set of pages. */
+  label?: string
 }
 
 const STEP = `rounded-full border border-line px-3 py-1.5 text-sm text-ink transition
   hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40`
 
-export function Pagination({ page, totalPages, onChange }: PaginationProps) {
+export function Pagination({ page, totalPages, onChange, label = 'Product pages' }: PaginationProps) {
   if (totalPages <= 1) {
     return null
   }
 
   return (
-    <nav aria-label="Product pages" className="flex items-center justify-center gap-1.5">
+    <nav aria-label={label} className="flex items-center justify-center gap-1.5">
       <button
         type="button"
         className={`${STEP} ${focusRing}`}

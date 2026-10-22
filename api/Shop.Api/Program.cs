@@ -5,6 +5,7 @@ using Shop.Api.Auth;
 using Shop.Api.Cart;
 using Shop.Api.Catalog;
 using Shop.Api.Images;
+using Shop.Api.Orders;
 using Shop.Api.Phone;
 using Shop.Api.Security;
 
@@ -19,6 +20,8 @@ builder.Services.AddAdminAuthorization(builder.Configuration);
 builder.Services.AddImageStore(builder.Configuration);
 builder.Services.AddScoped<GoogleSignIn>();
 builder.Services.AddPhoneVerification(builder.Configuration, builder.Environment);
+builder.Services.Configure<OrderOptions>(builder.Configuration.GetSection(OrderOptions.SectionName));
+builder.Services.AddScoped<OrderPlacement>();
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
@@ -47,6 +50,8 @@ app.MapAdminCatalogEndpoints();
 app.MapProductImageEndpoints();
 app.MapCartEndpoints();
 app.MapPhoneEndpoints();
+app.MapOrderEndpoints();
+app.MapAdminOrderEndpoints();
 
 // Reports only healthy/unhealthy so the public endpoint never leaks connection details.
 app.MapHealthChecks("/health", new HealthCheckOptions

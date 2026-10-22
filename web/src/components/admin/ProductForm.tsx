@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ApiError } from '../../lib/api'
 import {
   formErrorsFromApi,
@@ -10,7 +10,9 @@ import {
 } from '../../lib/productForm'
 import type { Category } from '../../types/catalog'
 import { Button } from '../common/Button'
-import { alertBanner, cardSurface, fieldControl, fieldError } from '../common/styles'
+import { Field } from '../common/Field'
+import { describedBy } from '../common/describedBy'
+import { alertBanner, cardSurface, fieldControl } from '../common/styles'
 
 const SAVE_FAILED = 'The product could not be saved. Check your connection and try again.'
 
@@ -20,41 +22,6 @@ type ProductFormProps = {
   submitLabel: string
   /** Rejects with the API's error so the form can put each message beside its field. */
   onSave: (input: ProductFormInput) => Promise<void>
-}
-
-type FieldProps = {
-  id: string
-  label: string
-  hint?: string
-  error?: string
-  children: ReactNode
-}
-
-function Field({ id, label, hint, error, children }: FieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium">
-        {label}
-      </label>
-      {children}
-      {hint && !error && (
-        <p id={`${id}-hint`} className="text-xs text-muted">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className={fieldError}>
-          {error}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Wires a control to its label's hint or error, so a screen reader reads it with the field. */
-function describedBy(id: string, error: string | undefined, hasHint: boolean) {
-  if (error) return { 'aria-invalid': true, 'aria-describedby': `${id}-error` }
-  return hasHint ? { 'aria-describedby': `${id}-hint` } : {}
 }
 
 export function ProductForm({ initialValues, categories, submitLabel, onSave }: ProductFormProps) {

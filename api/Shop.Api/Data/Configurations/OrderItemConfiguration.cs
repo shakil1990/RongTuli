@@ -11,7 +11,7 @@ internal sealed class OrderItemConfiguration : IEntityTypeConfiguration<OrderIte
         builder.ToTable("OrderItem");
 
         builder.Property(x => x.ProductName).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.Size).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Size).HasMaxLength(20);
         builder.Property(x => x.UnitPrice).HasPrecision(12, 2);
 
         builder.HasOne(x => x.Order)
