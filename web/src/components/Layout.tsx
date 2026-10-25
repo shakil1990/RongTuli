@@ -3,6 +3,7 @@ import { AdminBadge } from './AdminBadge'
 import { CartBadge } from './CartBadge'
 import { CategoryMenu } from './CategoryMenu'
 import { HealthStatus } from './HealthStatus'
+import { WakingUpNotice } from './WakingUpNotice'
 import { focusRing } from './common/styles'
 
 export function Layout() {
@@ -26,6 +27,12 @@ export function Layout() {
           </Link>
 
           <nav aria-label="Account and cart" className="flex items-center gap-1">
+            <Link
+              to="/orders"
+              className={`${focusRing} rounded-full px-3 py-2 text-sm font-medium transition hover:bg-sunken`}
+            >
+              Orders
+            </Link>
             <CartBadge />
             <AdminBadge />
           </nav>
@@ -37,6 +44,7 @@ export function Layout() {
       </header>
 
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <WakingUpNotice />
         <Outlet />
       </main>
 

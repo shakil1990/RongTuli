@@ -15,6 +15,8 @@ export type ProductSummary = {
   categorySlug: string
   coverImageUrl: string | null
   createdAt: string
+  /** Always true on the storefront; the admin list also returns drafts. */
+  isActive: boolean
 }
 
 export type ProductImage = {

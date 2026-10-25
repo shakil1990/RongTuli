@@ -1,12 +1,39 @@
+import { apiDeleteAsAdmin, apiPostAsAdmin, apiPutAsAdmin } from '../lib/api'
+import type { ProductImage } from '../types/catalog'
 import type { UploadTicket, UploadedImage } from '../types/images'
 
 /**
  * Image bytes never pass through our API: the admin's browser asks for a signed ticket and posts
  * the file straight to the image host, then reports back where it landed.
- *
- * Step 7 fetches the ticket through the admin API client, which needs the bearer token that
- * Step 3 adds. Everything below only needs the ticket, so it is already testable and final.
  */
+
+const imagesPath = (productId: number) => `/api/admin/products/${productId}/images`
+
+export function requestUploadTicket(productId: number, token: string): Promise<UploadTicket> {
+  return apiPostAsAdmin<UploadTicket>(`${imagesPath(productId)}/upload-ticket`, {}, token)
+}
+
+/** Records an image the host has already accepted; it goes on the end of the product's list. */
+export function attachImage(
+  productId: number,
+  uploaded: UploadedImage,
+  token: string,
+): Promise<ProductImage> {
+  return apiPostAsAdmin<ProductImage>(imagesPath(productId), uploaded, token)
+}
+
+export function deleteImage(productId: number, imageId: number, token: string): Promise<void> {
+  return apiDeleteAsAdmin(`${imagesPath(productId)}/${imageId}`, token)
+}
+
+/** Lists every image of the product in its new order; the first becomes the cover. */
+export function reorderImages(
+  productId: number,
+  imageIds: number[],
+  token: string,
+): Promise<ProductImage[]> {
+  return apiPutAsAdmin<ProductImage[]>(`${imagesPath(productId)}/order`, { imageIds }, token)
+}
 
 /** A human-readable reason the file cannot be uploaded, or null when it is fine. */
 export function imageFileProblem(file: File, ticket: UploadTicket): string | null {

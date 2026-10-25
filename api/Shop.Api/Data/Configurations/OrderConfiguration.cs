@@ -10,18 +10,25 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.ToTable("Order");
 
+        builder.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Phone).HasMaxLength(30).IsRequired();
         builder.Property(x => x.Address).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(1000);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.DeliveryZone).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.DeliveryFee).HasPrecision(12, 2);
         builder.Property(x => x.Total).HasPrecision(12, 2);
 
         builder.HasOne(x => x.User)
             .WithMany()
             .HasForeignKey(x => x.UserId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => x.Status);
+
+        // A customer finds their orders by phone, newest first.
+        builder.HasIndex(x => new { x.Phone, x.CreatedAt });
     }
 }

@@ -213,6 +213,8 @@ public sealed class CatalogApiTests : IDisposable
             .GetFromJsonAsync<PagedResult<ProductSummaryDto>>("/api/admin/products?q=shirt&sort=price_asc");
 
         Assert.Equal(["Blue Shirt", "Red Shirt"], result!.Items.Select(p => p.Name).Order());
+        Assert.False(result.Items.Single(p => p.Name == "Red Shirt").IsActive);
+        Assert.True(result.Items.Single(p => p.Name == "Blue Shirt").IsActive);
     }
 
     [Fact]

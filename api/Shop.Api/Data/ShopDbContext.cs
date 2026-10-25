@@ -17,6 +17,8 @@ public sealed class ShopDbContext(DbContextOptions<ShopDbContext> options) : DbC
 
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
+    public DbSet<PhoneVerification> PhoneVerifications => Set<PhoneVerification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ShopDbContext).Assembly);

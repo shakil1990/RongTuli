@@ -100,6 +100,20 @@ namespace Shop.Api.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("DeliveryFee")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("DeliveryZone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -118,7 +132,7 @@ namespace Shop.Api.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
 
-                    b.Property<int>("UserId")
+                    b.Property<int?>("UserId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -126,6 +140,8 @@ namespace Shop.Api.Data.Migrations
                     b.HasIndex("Status");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("Phone", "CreatedAt");
 
                     b.ToTable("Order", (string)null);
                 });
@@ -153,7 +169,6 @@ namespace Shop.Api.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("Size")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
@@ -168,6 +183,47 @@ namespace Shop.Api.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("OrderItem", (string)null);
+                });
+
+            modelBuilder.Entity("Shop.Api.Domain.PhoneVerification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Phone", "CreatedAt");
+
+                    b.ToTable("PhoneVerification", (string)null);
                 });
 
             modelBuilder.Entity("Shop.Api.Domain.Product", b =>
@@ -302,8 +358,7 @@ namespace Shop.Api.Data.Migrations
                     b.HasOne("Shop.Api.Domain.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("User");
                 });

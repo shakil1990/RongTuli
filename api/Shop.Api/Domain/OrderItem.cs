@@ -17,7 +17,8 @@ public sealed class OrderItem
 
     public string ProductName { get; set; } = null!;
 
-    public string Size { get; set; } = null!;
+    /// <summary>Null for a one-size product.</summary>
+    public string? Size { get; set; }
 
     public decimal UnitPrice { get; set; }
 

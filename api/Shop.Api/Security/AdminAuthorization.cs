@@ -6,12 +6,18 @@ namespace Shop.Api.Security;
 /// <summary>
 /// Authentication and authorization for admin endpoints: a bearer token this API signed itself,
 /// carrying the role it decided at sign-in. Anything else answers 401, and a token without the
-/// Admin role answers 403.
+/// Admin role answers 403. The same bearer scheme carries a customer's verified phone.
 /// </summary>
 public static class AdminAuthorization
 {
     public const string Policy = "Admin";
     public const string AdminRole = "Admin";
+
+    /// <summary>
+    /// For a customer's own orders: a token from phone verification, which carries the phone and
+    /// no role. An admin token has no phone claim, so it does not pass.
+    /// </summary>
+    public const string VerifiedPhonePolicy = "VerifiedPhone";
 
     public static IServiceCollection AddAdminAuthorization(
         this IServiceCollection services,
@@ -49,8 +55,13 @@ public static class AdminAuthorization
                 };
             });
 
+        // A verified-phone token is only ever one of this API's bearer tokens, so the policy names
+        // the scheme rather than leaning on whichever one is the default.
         services.AddAuthorizationBuilder()
-            .AddPolicy(Policy, policy => policy.RequireRole(AdminRole));
+            .AddPolicy(Policy, policy => policy.RequireRole(AdminRole))
+            .AddPolicy(VerifiedPhonePolicy, policy => policy
+                .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+                .RequireClaim(ClaimNames.Phone));
 
         return services;
     }

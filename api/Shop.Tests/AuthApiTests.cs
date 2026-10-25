@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shop.Api.Auth;
@@ -154,6 +155,22 @@ public sealed class AuthApiTests : IDisposable
         var response = await client.PostAsJsonAsync("/api/admin/categories", new CategoryRequest("Shoes", null));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SignIn_PastThePerIpLimit_Returns429BeforeVerifyingTheToken()
+    {
+        _factory.GoogleTokens.Accept("admin-token", "google-sub-1", TestSettings.AdminEmail);
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("RateLimits:SignInsPerIpPerHour", "1"));
+        var client = factory.CreateClient();
+
+        var first = await client.PostAsJsonAsync("/api/auth/google", new GoogleSignInRequest("stale-token"));
+        var second = await client.PostAsJsonAsync("/api/auth/google", new GoogleSignInRequest("admin-token"));
+
+        Assert.Equal(
+            (HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests),
+            (first.StatusCode, second.StatusCode));
     }
 
     private async Task<HttpClient> CreateSignedInClientAsync()
