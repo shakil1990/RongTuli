@@ -86,8 +86,9 @@ public static class RateLimits
     private static RateLimitPartition<string> PerClientIp(HttpContext http, int permitsPerHour) =>
         HourlyWindow("ip:" + (http.Connection.RemoteIpAddress?.ToString() ?? "unknown"), permitsPerHour);
 
-    // The limiter runs after authorization, so the policy on the endpoint has already required the
-    // claim. Keying on the phone rather than the address keeps customers behind one carrier IP apart.
+    // The limiter runs after authorization, so with phone verification on the policy has already
+    // required the claim. Keying on the phone rather than the address keeps customers behind one
+    // carrier IP apart. With verification off there is no proven phone, so the address is all there is.
     private static RateLimitPartition<string> PerVerifiedPhone(HttpContext http, int permitsPerHour) =>
         http.User.FindFirstValue(ClaimNames.Phone) is { } phone
             ? HourlyWindow("phone:" + phone, permitsPerHour)
