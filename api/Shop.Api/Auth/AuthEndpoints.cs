@@ -40,7 +40,7 @@ public static class AuthEndpoints
                     statusCode: StatusCodes.Status401Unauthorized,
                     title: "Unauthorized")
             };
-        });
+        }).RequireRateLimiting(RateLimits.SignIn);
 
         app.MapGet("/api/me", (ClaimsPrincipal user) => Results.Ok(new MeResponse(
                 user.FindFirstValue(ClaimNames.Email) ?? string.Empty,

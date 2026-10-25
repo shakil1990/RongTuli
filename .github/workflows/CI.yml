@@ -77,7 +77,7 @@
     # Web: install exactly what's in the lockfile, lint, type-check and build.
     # ---------------------------------------------------------------------------
     web:
-      name: Web (lint, build)
+      name: Web (lint, test, build)
       runs-on: ubuntu-latest
       timeout-minutes: 10
       defaults:
@@ -99,6 +99,10 @@
 
         - name: Lint
           run: npm run lint
+
+        # Vitest unit tests (cart, checkout, admin forms). jsdom only; nothing reaches the API.
+        - name: Test
+          run: npm test
 
         # `npm run build` runs `tsc -b` (type-check) and then the Vite production build.
         # VITE_API_URL is baked in at build time; a dummy value is enough because CI never calls the API.

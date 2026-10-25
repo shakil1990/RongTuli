@@ -299,6 +299,33 @@ public sealed class OrderApiTests : IDisposable
         Assert.Equal("Confirmed", seen!.Status);
     }
 
+    // The limit keys on the verified phone, not the address, so customers sharing a carrier IP
+    // do not use up each other's orders.
+    [Fact]
+    public async Task Place_PastTheHourlyLimitForAPhone_Returns429_WhileAnotherPhoneCanStillOrder()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("RateLimits:OrdersPerPhonePerHour", "1"));
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(factory, shirt);
+
+        var first = await PlaceWithAsync(factory, Phone, Request(Phone, Line(shirt)));
+        var second = await PlaceWithAsync(factory, Phone, Request(Phone, Line(shirt)));
+        var otherPhone = await PlaceWithAsync(factory, OtherPhone, Request(OtherPhone, Line(shirt)));
+
+        Assert.Equal(
+            (HttpStatusCode.Created, HttpStatusCode.TooManyRequests, HttpStatusCode.Created),
+            (first.StatusCode, second.StatusCode, otherPhone.StatusCode));
+        Assert.NotNull(second.Headers.RetryAfter?.Delta);
+        Assert.Equal(2, (await OrdersAsync()).Count);
+    }
+
+    private static Task<HttpResponseMessage> PlaceWithAsync(
+        WebApplicationFactory<Program> factory,
+        string verifiedPhone,
+        PlaceOrderRequest request) =>
+        ClientWith(factory, PhoneToken(factory, verifiedPhone)).PostAsJsonAsync("/api/orders", request);
+
     private static Product Product(string name, decimal price, params string[] sizes) =>
         Product(name, price, isActive: true, sizes);
 
