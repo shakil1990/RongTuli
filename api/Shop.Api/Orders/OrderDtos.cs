@@ -56,5 +56,8 @@ public sealed record OrderStatusRequest(string? Status);
 
 public sealed record DeliveryOptionDto(string Zone, decimal Fee);
 
-/// <summary>What the checkout page needs to offer the delivery zones and show a total before ordering.</summary>
-public sealed record CheckoutOptionsDto(IReadOnlyList<DeliveryOptionDto> DeliveryOptions);
+/// <summary>
+/// What the checkout page needs to offer the delivery zones, show a total before ordering, and
+/// decide whether to ask for a texted code or just the number.
+/// </summary>
+public sealed record CheckoutOptionsDto(IReadOnlyList<DeliveryOptionDto> DeliveryOptions, bool RequirePhoneVerification);

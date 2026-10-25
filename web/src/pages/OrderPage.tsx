@@ -12,6 +12,7 @@ import { formatPhoneForDisplay } from '../lib/phone'
 import { useCustomerCall } from '../phone/useCustomerCall'
 import { useVerifiedPhone } from '../phone/useVerifiedPhone'
 import { fetchMyOrder, orderKeys } from '../services/orders'
+import type { Order } from '../types/orders'
 import type { PlacedOrderState } from './CheckoutPage'
 
 function readOrderId(value: string | undefined): number | null {
@@ -19,7 +20,7 @@ function readOrderId(value: string | undefined): number | null {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
-function OrderDetails({ id, justPlaced }: { id: number; justPlaced: boolean }) {
+function OrderDetails({ id }: { id: number }) {
   const { verified } = useVerifiedPhone()
   const call = useCustomerCall()
   const phone = verified?.phone ?? ''
@@ -53,6 +54,10 @@ function OrderDetails({ id, justPlaced }: { id: number; justPlaced: boolean }) {
     )
   }
 
+  return <OrderView order={order} justPlaced={false} />
+}
+
+function OrderView({ order, justPlaced }: { order: Order; justPlaced: boolean }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
       <section className={`${cardSurface} space-y-5 p-5 sm:p-6`}>
@@ -102,7 +107,7 @@ function OrderDetails({ id, justPlaced }: { id: number; justPlaced: boolean }) {
 /** The confirmation page after checkout, and where a customer comes back to check the status. */
 export function OrderPage() {
   const id = readOrderId(useParams().id)
-  const state = useLocation().state as PlacedOrderState | null
+  const state = useLocation().state as Partial<PlacedOrderState> | null
 
   if (id === null) {
     return (
@@ -118,12 +123,19 @@ export function OrderPage() {
     )
   }
 
+  // Straight from checkout the order is already in hand, so no phone proof is needed to show it.
+  // The state is kept in the history entry, so a reload still finds it. An entry saved by an older
+  // version of the page holds no order, and falls through to verification.
+  if (state?.order?.id === id) {
+    return <OrderView order={state.order} justPlaced />
+  }
+
   return (
     <VerifyToContinue
       title={`See order ${formatOrderNumber(id)}`}
       description="Enter the phone number the order was placed with. We text a code to make sure it is yours."
     >
-      <OrderDetails id={id} justPlaced={state?.placed === true} />
+      <OrderDetails id={id} />
     </VerifyToContinue>
   )
 }

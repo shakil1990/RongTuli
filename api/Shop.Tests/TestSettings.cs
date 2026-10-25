@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Shop.Api.Orders;
 using Shop.Api.Security;
 
 namespace Shop.Tests;
@@ -25,6 +26,10 @@ public static class TestSettings
         builder.UseSetting($"{GoogleOptions.SectionName}:{nameof(GoogleOptions.ClientId)}", "test-client-id");
         builder.UseSetting($"{AdminOptions.SectionName}:{nameof(AdminOptions.Emails)}:0", AdminEmail);
         builder.UseSetting($"{AdminOptions.SectionName}:{nameof(AdminOptions.Emails)}:1", "  SECOND.Admin@RongTuli.Test  ");
+
+        // appsettings.json switches verification off while no SMS provider is chosen; the tests run
+        // with it on, as the shop will, and the ones about ordering without it switch it off themselves.
+        builder.UseSetting($"{OrderOptions.SectionName}:{nameof(OrderOptions.RequirePhoneVerification)}", "true");
 
         return builder;
     }

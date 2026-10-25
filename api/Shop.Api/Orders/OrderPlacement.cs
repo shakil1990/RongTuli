@@ -29,10 +29,15 @@ internal sealed partial class OrderPlacement(
     IOptions<OrderOptions> options,
     ILogger<OrderPlacement> logger)
 {
-    public async Task<PlaceOrderResult> PlaceAsync(PlaceOrderRequest request, string verifiedPhone, CancellationToken ct)
+    /// <param name="verifiedPhone">
+    /// The phone the token proves, or null when phone verification is switched off and the form's
+    /// number is taken as typed.
+    /// </param>
+    public async Task<PlaceOrderResult> PlaceAsync(PlaceOrderRequest request, string? verifiedPhone, CancellationToken ct)
     {
+        // Validation has already checked the number, so it normalizes.
         PhoneNumbers.TryNormalize(request.Phone, out var phone);
-        if (!string.Equals(phone, verifiedPhone, StringComparison.Ordinal))
+        if (verifiedPhone is not null && !string.Equals(phone, verifiedPhone, StringComparison.Ordinal))
         {
             LogPhoneMismatch();
             return new PlaceOrderResult(PlaceOrderStatus.PhoneMismatch);
@@ -51,7 +56,7 @@ internal sealed partial class OrderPlacement(
         var order = new Order
         {
             CustomerName = request.CustomerName!.Trim(),
-            Phone = verifiedPhone,
+            Phone = phone!,
             Address = request.Address!.Trim(),
             Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             Status = OrderStatus.Pending,

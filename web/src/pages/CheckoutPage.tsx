@@ -24,23 +24,29 @@ import {
   type DeliveryFormField,
   type DeliveryFormValues,
 } from '../lib/orders'
-import { formatPhoneForDisplay } from '../lib/phone'
+import { formatPhoneForDisplay, formatPhoneInput, toE164 } from '../lib/phone'
 import { useVerifiedPhone } from '../phone/useVerifiedPhone'
 import { cartKeys, requestCartQuote } from '../services/cart'
 import { fetchCheckoutOptions, orderKeys, placeOrder } from '../services/orders'
 import { CART_ISSUE_MESSAGES } from '../types/cart'
-import { DELIVERY_ZONES } from '../types/orders'
+import { DELIVERY_ZONES, type Order } from '../types/orders'
 
 const OFFLINE = 'We could not reach the shop. Check your connection and try again.'
 const VERIFICATION_EXPIRED =
   'Your phone verification ran out. Verify the number again, then place the order — your details are kept.'
-
-/** Navigation state the confirmation page reads to say thank you rather than just show the order. */
-export type PlacedOrderState = { placed: true }
+const PHONE_INVALID = 'Enter a Bangladeshi mobile number, like 01712-345678.'
 
 /**
- * Checkout without an account: the customer proves their phone, says where to deliver, and
- * confirms the total they see. Everything stays on this page, so nothing typed is lost on the way.
+ * Navigation state the confirmation page reads to say thank you rather than just show the order.
+ * The order rides along so the page can show it without a verified phone to fetch it with.
+ */
+export type PlacedOrderState = { placed: true; order: Order }
+
+/**
+ * Checkout without an account: the customer gives their phone, says where to deliver, and
+ * confirms the total they see. Whether the phone must be proven by a texted code is the API's
+ * call (`requirePhoneVerification`); while it is off, a well-formed number is enough. Everything
+ * stays on this page, so nothing typed is lost on the way.
  */
 export function CheckoutPage() {
   const { lines, clear } = useCart()
@@ -53,6 +59,8 @@ export function CheckoutPage() {
     note: '',
     deliveryZone: DEFAULT_DELIVERY_ZONE,
   })
+  const [phoneInput, setPhoneInput] = useState('')
+  const [phoneError, setPhoneError] = useState<string | undefined>()
   const [errors, setErrors] = useState<DeliveryFormErrors>({})
   const [problem, setProblem] = useState<string | null>(null)
   const [isPlacing, setIsPlacing] = useState(false)
@@ -89,7 +97,10 @@ export function CheckoutPage() {
   const hasBlockedLine = pricedQuote?.items.some((item) => !item.isOrderable) ?? false
   const deliveryFee = deliveryFeeFor(options, values.deliveryZone)
   const total = pricedQuote && deliveryFee !== undefined ? pricedQuote.subtotal + deliveryFee : undefined
-  const canPlace = verified !== null && orderLines !== null && total !== undefined && !isPlacing
+  // Undefined until the options load; the phone step waits for them rather than guessing.
+  const verificationRequired = options?.requirePhoneVerification
+  const hasPhoneProof = verificationRequired === false || verified !== null
+  const canPlace = hasPhoneProof && orderLines !== null && total !== undefined && !isPlacing
 
   const update = (field: Exclude<DeliveryFormField, 'deliveryZone'>) => (value: string) => {
     setValues((current) => ({ ...current, [field]: value }))
@@ -102,34 +113,42 @@ export function CheckoutPage() {
 
     const formErrors = validateDeliveryForm(values)
     setErrors(formErrors)
-    if (!verified) {
+    if (verificationRequired && !verified) {
       setProblem('Verify your phone number first — step 1 above.')
       return
     }
-    if (Object.keys(formErrors).length > 0 || !orderLines) return
+
+    const phone = verificationRequired ? verified?.phone : toE164(phoneInput)
+    // The verified-phone token only goes along when the API asks for it.
+    const token = verificationRequired ? (verified?.token ?? null) : null
+    if (!verificationRequired) setPhoneError(phone ? undefined : PHONE_INVALID)
+    if (Object.keys(formErrors).length > 0 || !orderLines || !phone) return
 
     setIsPlacing(true)
     try {
       const order = await placeOrder(
         {
           customerName: values.customerName.trim(),
-          phone: verified.phone,
+          phone,
           address: values.address.trim(),
           note: values.note.trim() || null,
           deliveryZone: values.deliveryZone,
           items: orderLines,
         },
-        verified.token,
+        token,
       )
+      if (token) {
+        // A verified customer can open their order list next, so it is refreshed for them.
+        queryClient.setQueryData(orderKeys.one(phone, order.id), order)
+        void queryClient.invalidateQueries({ queryKey: orderKeys.mine(phone) })
+      }
       // The confirmation page opens on the order just returned, without asking for it again.
-      queryClient.setQueryData(orderKeys.one(verified.phone, order.id), order)
-      void queryClient.invalidateQueries({ queryKey: orderKeys.mine(verified.phone) })
-      navigate(`/orders/${order.id}`, { state: { placed: true } satisfies PlacedOrderState })
+      navigate(`/orders/${order.id}`, { state: { placed: true, order } satisfies PlacedOrderState })
       clear()
     } catch (caught) {
       if (!(caught instanceof ApiError)) {
         setProblem(OFFLINE)
-      } else if (caught.status === 401 || caught.fieldErrors.phone) {
+      } else if (token && (caught.status === 401 || caught.fieldErrors.phone)) {
         forget()
         setProblem(VERIFICATION_EXPIRED)
       } else if (caught.status === 409) {
@@ -138,8 +157,10 @@ export function CheckoutPage() {
         await queryClient.invalidateQueries({ queryKey: cartKeys.quote(lines) })
       } else {
         const fieldErrors = deliveryErrorsFromApi(caught.fieldErrors)
+        const apiPhoneError = token ? undefined : caught.fieldErrors.phone?.[0]
         setErrors(fieldErrors)
-        setProblem(Object.keys(fieldErrors).length > 0 ? null : caught.message)
+        setPhoneError(apiPhoneError)
+        setProblem(Object.keys(fieldErrors).length > 0 || apiPhoneError ? null : caught.message)
       }
     } finally {
       setIsPlacing(false)
@@ -156,7 +177,35 @@ export function CheckoutPage() {
             <h2 id="checkout-phone-heading" className="text-xl">
               1. Your phone
             </h2>
-            {verified ? (
+            {verificationRequired === undefined ? (
+              <p className="text-sm text-muted">
+                {isOptionsError ? 'Checkout is unavailable just now. Reload the page to try again.' : 'Loading…'}
+              </p>
+            ) : !verificationRequired ? (
+              <Field
+                id="checkout-phone"
+                label="Mobile number"
+                hint="We might call this number to confirm the order before it ships. No account needed."
+                error={phoneError}
+              >
+                <input
+                  id="checkout-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  placeholder="01712-345678"
+                  form="checkout-form"
+                  value={phoneInput}
+                  onChange={(event) => {
+                    setPhoneInput(formatPhoneInput(event.target.value))
+                    setPhoneError(undefined)
+                  }}
+                  className={fieldControl}
+                  {...describedBy('checkout-phone', phoneError, true)}
+                />
+              </Field>
+            ) : verified ? (
               <p className="text-sm" role="status">
                 <span aria-hidden="true" className="text-accent">
                   ✓
@@ -361,7 +410,9 @@ export function CheckoutPage() {
           <Button type="submit" form="checkout-form" size="lg" className="w-full" disabled={!canPlace}>
             {isPlacing ? 'Placing order…' : 'Place order'}
           </Button>
-          {!verified && <p className="text-xs text-muted">Verify your phone to place the order.</p>}
+          {verificationRequired && !verified && (
+            <p className="text-xs text-muted">Verify your phone to place the order.</p>
+          )}
         </aside>
       </div>
 
