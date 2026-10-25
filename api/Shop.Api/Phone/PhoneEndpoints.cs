@@ -1,13 +1,9 @@
-using System.Globalization;
+using Shop.Api.Security;
 
 namespace Shop.Api.Phone;
 
 public static class PhoneEndpoints
 {
-    public const string SendRateLimit = "otp-send";
-
-    public const string VerifyRateLimit = "otp-verify";
-
     private const string WrongCodeMessage =
         "That code is wrong or has expired. Check the latest text, or send a new code.";
 
@@ -32,7 +28,7 @@ public static class PhoneEndpoints
             return result.Status switch
             {
                 SendCodeStatus.Sent => Results.Ok(result.Response),
-                SendCodeStatus.TooSoon => TooManyRequests(
+                SendCodeStatus.TooSoon => RateLimits.TooManyRequests(
                     http,
                     result.RetryAfter!.Value,
                     "A code was sent to this number recently."),
@@ -41,7 +37,7 @@ public static class PhoneEndpoints
                     statusCode: StatusCodes.Status502BadGateway,
                     title: "Bad Gateway")
             };
-        }).RequireRateLimiting(SendRateLimit);
+        }).RequireRateLimiting(RateLimits.OtpSend);
 
         app.MapPost("/api/phone/verify", async (
             VerifyCodeRequest request,
@@ -71,31 +67,8 @@ public static class PhoneEndpoints
             return verified is null
                 ? Results.ValidationProblem(new Dictionary<string, string[]> { ["code"] = [WrongCodeMessage] })
                 : Results.Ok(verified);
-        }).RequireRateLimiting(VerifyRateLimit);
+        }).RequireRateLimiting(RateLimits.OtpVerify);
 
         return app;
     }
-
-    /// <summary>
-    /// A 429 the web app can count down from. The wait goes in the body as well as the header,
-    /// since a cross-origin page cannot read Retry-After unless CORS exposes it.
-    /// </summary>
-    internal static IResult TooManyRequests(HttpContext http, TimeSpan retryAfter, string reason)
-    {
-        var seconds = (int)Math.Ceiling(retryAfter.TotalSeconds);
-        http.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
-
-        return Results.Problem(
-            $"{reason} Try again in {DescribeWait(seconds)}.",
-            statusCode: StatusCodes.Status429TooManyRequests,
-            title: "Too Many Requests",
-            extensions: new Dictionary<string, object?> { ["retryAfterSeconds"] = seconds });
-    }
-
-    private static string DescribeWait(int seconds) => seconds switch
-    {
-        <= 90 => $"{seconds} seconds",
-        < 90 * 60 => $"{(int)Math.Ceiling(seconds / 60.0)} minutes",
-        _ => $"{(int)Math.Ceiling(seconds / 3600.0)} hours"
-    };
 }

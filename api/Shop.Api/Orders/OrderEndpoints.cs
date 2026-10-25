@@ -49,7 +49,7 @@ public static class OrderEndpoints
                     title: "Conflict",
                     extensions: new Dictionary<string, object?> { ["quote"] = result.Quote })
             };
-        });
+        }).RequireRateLimiting(RateLimits.PlaceOrder);
 
         group.MapGet("/", async (ShopDbContext db, ClaimsPrincipal user, CancellationToken ct) =>
         {
