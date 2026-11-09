@@ -154,6 +154,39 @@ public sealed class OrderApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Place_ControlCharactersInTheText_ReturnsBadRequestForEachField()
+    {
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(shirt);
+
+        var response = await PlaceAsync(
+            Phone,
+            Request(Phone, Line(shirt)) with
+            {
+                CustomerName = "Rahim\nUddin",
+                Address = "House 12, Road 5\u001b[2J, Dhaka",
+                Note = "Call first\u0000"
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.Equivalent(new[] { "customerName", "address", "note" }, problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Place_AddressOnSeveralLines_IsAccepted()
+    {
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(shirt);
+
+        var response = await PlaceAsync(
+            Phone,
+            Request(Phone, Line(shirt)) with { Address = "House 12, Road 5\r\nDhanmondi, Dhaka" });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Place_LineWithoutTheShownPrice_ReturnsBadRequest()
     {
         var shirt = Product("Shirt", 450m);
@@ -272,6 +305,78 @@ public sealed class OrderApiTests : IDisposable
         Assert.Equal(
             [new DeliveryOptionDto("InsideDhaka", InsideDhakaFee), new DeliveryOptionDto("OutsideDhaka", OutsideDhakaFee)],
             options!.DeliveryOptions);
+        Assert.True(options.RequirePhoneVerification);
+    }
+
+    [Fact]
+    public async Task VerificationOff_CheckoutOptionsSaySo()
+    {
+        using var factory = WithoutVerification();
+
+        var options = await factory.CreateClient().GetFromJsonAsync<CheckoutOptionsDto>("/api/checkout/options");
+
+        Assert.False(options!.RequirePhoneVerification);
+    }
+
+    [Fact]
+    public async Task VerificationOff_PlaceWithoutAToken_SavesTheOrderUnderTheTypedNumber()
+    {
+        using var factory = WithoutVerification();
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(factory, shirt);
+
+        var response = await factory.CreateClient()
+            .PostAsJsonAsync("/api/orders", Request("01712-345678", Line(shirt)));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var order = Assert.Single(await OrdersAsync(factory));
+        Assert.Equal(Phone, order.Phone);
+        Assert.Equal(450m + InsideDhakaFee, order.Total);
+    }
+
+    [Fact]
+    public async Task VerificationOff_PlaceWithAMalformedNumber_ReturnsBadRequestOnThePhoneField()
+    {
+        using var factory = WithoutVerification();
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(factory, shirt);
+
+        var response = await factory.CreateClient()
+            .PostAsJsonAsync("/api/orders", Request("0171234", Line(shirt)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.Equal([PhoneNumbers.FormatHint], problem!.Errors["phone"]);
+        Assert.Empty(await OrdersAsync(factory));
+    }
+
+    // Placing no longer needs the proof; reading orders back still does, or anyone could list a number's orders.
+    [Fact]
+    public async Task VerificationOff_ListingOrdersStillNeedsAVerifiedPhone()
+    {
+        using var factory = WithoutVerification();
+
+        var response = await factory.CreateClient().GetAsync("/api/orders");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task VerificationOff_PastTheHourlyLimit_Returns429()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder => builder
+            .UseSetting("Orders:RequirePhoneVerification", "false")
+            .UseSetting("RateLimits:OrdersPerPhonePerHour", "1"));
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(factory, shirt);
+        var client = factory.CreateClient();
+
+        var first = await client.PostAsJsonAsync("/api/orders", Request(Phone, Line(shirt)));
+        var second = await client.PostAsJsonAsync("/api/orders", Request(OtherPhone, Line(shirt)));
+
+        Assert.Equal(
+            (HttpStatusCode.Created, HttpStatusCode.TooManyRequests),
+            (first.StatusCode, second.StatusCode));
     }
 
     [Fact]
@@ -334,7 +439,7 @@ public sealed class OrderApiTests : IDisposable
         var product = new Product
         {
             Name = name,
-            Slug = Slugs.From(name),
+            Slug = Slugs.From(name, Slugs.MaxProductSlugLength),
             Price = price,
             CategoryId = 1,
             IsActive = isActive,
@@ -400,9 +505,14 @@ public sealed class OrderApiTests : IDisposable
             .Deserialize<CartQuoteDto>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
     }
 
-    private async Task<List<Order>> OrdersAsync()
+    private WebApplicationFactory<Program> WithoutVerification() =>
+        _factory.WithWebHostBuilder(builder => builder.UseSetting("Orders:RequirePhoneVerification", "false"));
+
+    private Task<List<Order>> OrdersAsync() => OrdersAsync(_factory);
+
+    private static async Task<List<Order>> OrdersAsync(WebApplicationFactory<Program> factory)
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<ShopDbContext>().Orders.ToListAsync();
     }
 

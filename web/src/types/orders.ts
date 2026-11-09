@@ -21,7 +21,7 @@ export type Order = {
   id: number
   status: OrderStatus
   customerName: string
-  /** E.164, as verified. */
+  /** E.164, as verified — or as typed, while phone verification is off. */
   phone: string
   address: string
   note: string | null
@@ -60,6 +60,8 @@ export type DeliveryOption = {
 
 export type CheckoutOptions = {
   deliveryOptions: DeliveryOption[]
+  /** False while the shop takes orders on the typed number alone, with no texted code. */
+  requirePhoneVerification: boolean
 }
 
 /** One cart line as the order endpoint takes it: `unitPrice` is the price the customer was shown. */

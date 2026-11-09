@@ -14,16 +14,19 @@ public static class OrderEndpoints
 
     public static IEndpointRouteBuilder MapOrderEndpoints(this IEndpointRouteBuilder app)
     {
-        // Public, so the checkout page can show the full total before the phone is verified.
+        var requirePhoneVerification =
+            app.ServiceProvider.GetRequiredService<IOptions<OrderOptions>>().Value.RequirePhoneVerification;
+
+        // Public, so the checkout page can show the full total before the phone is verified, and
+        // knows whether to ask for a code at all.
         app.MapGet("/api/checkout/options", (IOptions<OrderOptions> options) =>
-            Results.Ok(new CheckoutOptionsDto(Enum.GetValues<DeliveryZone>()
-                .Select(zone => new DeliveryOptionDto(zone.ToString(), options.Value.FeeFor(zone)))
-                .ToList())));
+            Results.Ok(new CheckoutOptionsDto(
+                Enum.GetValues<DeliveryZone>()
+                    .Select(zone => new DeliveryOptionDto(zone.ToString(), options.Value.FeeFor(zone)))
+                    .ToList(),
+                options.Value.RequirePhoneVerification)));
 
-        // Everything below needs a verified phone, and only ever shows that phone's orders.
-        var group = app.MapGroup("/api/orders").RequireAuthorization(AdminAuthorization.VerifiedPhonePolicy);
-
-        group.MapPost("/", async (
+        var placeOrder = app.MapPost("/api/orders", async (
             PlaceOrderRequest request,
             OrderPlacement placement,
             ClaimsPrincipal user,
@@ -35,7 +38,8 @@ public static class OrderEndpoints
                 return Results.ValidationProblem(errors);
             }
 
-            var result = await placement.PlaceAsync(request, VerifiedPhone(user), ct);
+            var verifiedPhone = requirePhoneVerification ? VerifiedPhone(user) : null;
+            var result = await placement.PlaceAsync(request, verifiedPhone, ct);
             return result.Status switch
             {
                 PlaceOrderStatus.Placed => Results.Created(
@@ -50,6 +54,14 @@ public static class OrderEndpoints
                     extensions: new Dictionary<string, object?> { ["quote"] = result.Quote })
             };
         }).RequireRateLimiting(RateLimits.PlaceOrder);
+
+        if (requirePhoneVerification)
+        {
+            placeOrder.RequireAuthorization(AdminAuthorization.VerifiedPhonePolicy);
+        }
+
+        // Reading orders always needs a verified phone, and only ever shows that phone's orders.
+        var group = app.MapGroup("/api/orders").RequireAuthorization(AdminAuthorization.VerifiedPhonePolicy);
 
         group.MapGet("/", async (ShopDbContext db, ClaimsPrincipal user, CancellationToken ct) =>
         {
@@ -72,6 +84,6 @@ public static class OrderEndpoints
         return app;
     }
 
-    // The policy has already required the claim, so it is always there.
+    // Only called where the verified-phone policy has already required the claim, so it is always there.
     private static string VerifiedPhone(ClaimsPrincipal user) => user.FindFirstValue(ClaimNames.Phone)!;
 }

@@ -13,6 +13,7 @@ import { DELIVERY_ZONE_LABELS, STATUS_ACTIONS, formatOrderDate, formatOrderNumbe
 import { formatPhoneForDisplay } from '../../lib/phone'
 import { fetchAdminOrder, orderKeys, refreshAdminOrders, setOrderStatus } from '../../services/orders'
 import type { OrderStatus } from '../../types/orders'
+import { usePageTitle } from '../../lib/pageTitle'
 
 const UPDATE_FAILED = 'The status could not be changed. Check your connection and try again.'
 
@@ -23,6 +24,7 @@ function readOrderId(value: string | undefined): number | null {
 
 export function AdminOrderPage() {
   const id = readOrderId(useParams().id)
+  usePageTitle(id === null ? 'Order · Admin' : `Order ${formatOrderNumber(id)} · Admin`)
   const call = useAdminCall()
   const queryClient = useQueryClient()
   const [updatingTo, setUpdatingTo] = useState<OrderStatus | null>(null)

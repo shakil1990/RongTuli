@@ -26,6 +26,7 @@ public static class CatalogEndpoints
             var pageNumber = page ?? 1;
             var size = pageSize ?? CatalogValidation.DefaultPageSize;
             var errors = CatalogValidation.ValidateListQuery(sort, pageNumber, size);
+            CatalogValidation.ValidateFilters(errors, category, search: null);
             if (errors.Count > 0)
             {
                 return Results.ValidationProblem(errors);

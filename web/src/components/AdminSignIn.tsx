@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { googleClientId } from '../auth/googleClient'
 import { useAuth } from '../auth/useAuth'
 import { cardSurface } from './common/styles'
+import { usePageTitle } from '../lib/pageTitle'
 
 const GOOGLE_FAILED = 'Google could not complete the sign-in. Try again.'
 
@@ -11,6 +12,7 @@ const GOOGLE_FAILED = 'Google could not complete the sign-in. Try again.'
  * accounts, so an admin reaches this by going to /admin.
  */
 export function AdminSignIn() {
+  usePageTitle('Admin sign-in')
   const { signIn, isSigningIn, error } = useAuth()
   const [googleError, setGoogleError] = useState<string | null>(null)
 

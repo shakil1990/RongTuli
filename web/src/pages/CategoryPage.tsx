@@ -4,6 +4,7 @@ import { CatalogBrowser } from '../components/CatalogBrowser'
 import { EmptyState } from '../components/common/EmptyState'
 import { buttonClasses } from '../components/common/styles'
 import { catalogKeys, fetchCategories } from '../services/catalog'
+import { usePageTitle } from '../lib/pageTitle'
 
 export function CategoryPage() {
   const { slug = '' } = useParams()
@@ -15,6 +16,7 @@ export function CategoryPage() {
   })
 
   const category = categories?.find((candidate) => candidate.slug === slug)
+  usePageTitle(category?.name ?? null)
 
   return (
     <div className="space-y-6">

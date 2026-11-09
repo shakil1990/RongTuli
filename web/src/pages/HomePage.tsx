@@ -1,10 +1,12 @@
 import { useSearchParams } from 'react-router-dom'
 import { CatalogBrowser } from '../components/CatalogBrowser'
 import { EmptyState } from '../components/common/EmptyState'
+import { usePageTitle } from '../lib/pageTitle'
 
 const PROMISES = ['Cash on delivery', 'Delivered across Bangladesh', 'No card needed']
 
 export function HomePage() {
+  usePageTitle(null)
   const [searchParams] = useSearchParams()
 
   // The hero would only push the grid down once a viewer starts sorting or paging.

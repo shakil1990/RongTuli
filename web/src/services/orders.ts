@@ -3,6 +3,7 @@ import {
   apiGet,
   apiGetAsAdmin,
   apiGetAsCustomer,
+  apiPost,
   apiPostAsCustomer,
   apiPutAsAdmin,
 } from '../lib/api'
@@ -42,8 +43,9 @@ export function fetchCheckoutOptions(signal?: AbortSignal): Promise<CheckoutOpti
   return apiGet<CheckoutOptions>('/api/checkout/options', signal)
 }
 
-export function placeOrder(input: PlaceOrderInput, token: string): Promise<Order> {
-  return apiPostAsCustomer<Order>('/api/orders', input, token)
+/** Without a token while phone verification is off, when the API takes the order on the typed number. */
+export function placeOrder(input: PlaceOrderInput, token: string | null): Promise<Order> {
+  return token ? apiPostAsCustomer<Order>('/api/orders', input, token) : apiPost<Order>('/api/orders', input)
 }
 
 export function fetchMyOrders(token: string, signal?: AbortSignal): Promise<OrderSummary[]> {

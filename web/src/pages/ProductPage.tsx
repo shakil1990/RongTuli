@@ -12,6 +12,7 @@ import { SizePicker } from '../components/SizePicker'
 import { ApiError } from '../lib/api'
 import { formatTaka } from '../lib/format'
 import { catalogKeys, fetchProduct } from '../services/catalog'
+import { usePageTitle } from '../lib/pageTitle'
 
 export function ProductPage() {
   const { slug = '' } = useParams()
@@ -36,6 +37,7 @@ function ProductView({ slug }: { slug: string }) {
     retry: (failureCount, queryError) =>
       !(queryError instanceof ApiError && queryError.status === 404) && failureCount < 2,
   })
+  usePageTitle(productQuery.data?.name ?? null)
 
   if (productQuery.isPending) {
     return (

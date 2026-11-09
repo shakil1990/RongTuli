@@ -4,6 +4,7 @@ internal static class CartValidation
 {
     public const int MaxLines = 50;
     public const int MaxQuantity = 99;
+    private const int MaxSizeLength = 20;
 
     public static Dictionary<string, string[]> Validate(CartQuoteRequest request)
     {
@@ -30,6 +31,13 @@ internal static class CartValidation
         if (items.Any(item => item.Quantity is null or < 1 or > MaxQuantity))
         {
             errors["items[].quantity"] = [$"Quantity must be between 1 and {MaxQuantity}."];
+        }
+
+        // No product offers a size longer than this, so a longer one can only be junk; it would
+        // otherwise be echoed back in the quote.
+        if (items.Any(item => (item.Size?.Trim().Length ?? 0) > MaxSizeLength))
+        {
+            errors["items[].size"] = [$"A size is at most {MaxSizeLength} characters."];
         }
 
         return errors;

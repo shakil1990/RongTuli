@@ -111,6 +111,7 @@ describe('deliveryFeeFor', () => {
       { zone: 'InsideDhaka' as const, fee: 80 },
       { zone: 'OutsideDhaka' as const, fee: 150 },
     ],
+    requirePhoneVerification: true,
   }
 
   it('reads the fee the API quoted for each zone', () => {
