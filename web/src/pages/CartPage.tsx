@@ -7,8 +7,10 @@ import { EmptyState } from '../components/common/EmptyState'
 import { buttonClasses, cardSurface } from '../components/common/styles'
 import { formatTaka } from '../lib/format'
 import { cartKeys, requestCartQuote } from '../services/cart'
+import { usePageTitle } from '../lib/pageTitle'
 
 export function CartPage() {
+  usePageTitle('Cart')
   const { lines, count, subtotal, setQuantity, removeLine, clear } = useCart()
 
   // The query key carries the lines, so any edit re-quotes and the result always

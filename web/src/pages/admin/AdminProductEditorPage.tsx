@@ -19,6 +19,7 @@ import {
 } from '../../services/admin'
 import { catalogKeys, fetchCategories } from '../../services/catalog'
 import type { ProductDetail } from '../../types/catalog'
+import { usePageTitle } from '../../lib/pageTitle'
 
 const PUBLISH_FAILED = 'The change did not go through. Check your connection and try again.'
 
@@ -113,6 +114,7 @@ export function AdminProductEditorPage() {
     queryFn: ({ signal }) => call((token) => fetchAdminProduct(productId!, token, signal)),
     enabled: !isNew && Number.isInteger(productId),
   })
+  usePageTitle(`${isNew ? 'New product' : (product.data?.name ?? 'Edit product')} · Admin`)
 
   const reload = () => refreshProducts(queryClient)
 

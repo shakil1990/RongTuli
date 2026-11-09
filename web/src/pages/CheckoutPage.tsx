@@ -30,6 +30,7 @@ import { cartKeys, requestCartQuote } from '../services/cart'
 import { fetchCheckoutOptions, orderKeys, placeOrder } from '../services/orders'
 import { CART_ISSUE_MESSAGES } from '../types/cart'
 import { DELIVERY_ZONES, type Order } from '../types/orders'
+import { usePageTitle } from '../lib/pageTitle'
 
 const OFFLINE = 'We could not reach the shop. Check your connection and try again.'
 const VERIFICATION_EXPIRED =
@@ -49,6 +50,7 @@ export type PlacedOrderState = { placed: true; order: Order }
  * stays on this page, so nothing typed is lost on the way.
  */
 export function CheckoutPage() {
+  usePageTitle('Checkout')
   const { lines, clear } = useCart()
   const { verified, remember, forget } = useVerifiedPhone()
   const navigate = useNavigate()
