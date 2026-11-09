@@ -154,6 +154,39 @@ public sealed class OrderApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Place_ControlCharactersInTheText_ReturnsBadRequestForEachField()
+    {
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(shirt);
+
+        var response = await PlaceAsync(
+            Phone,
+            Request(Phone, Line(shirt)) with
+            {
+                CustomerName = "Rahim\nUddin",
+                Address = "House 12, Road 5\u001b[2J, Dhaka",
+                Note = "Call first\u0000"
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.Equivalent(new[] { "customerName", "address", "note" }, problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Place_AddressOnSeveralLines_IsAccepted()
+    {
+        var shirt = Product("Shirt", 450m);
+        await SeedAsync(shirt);
+
+        var response = await PlaceAsync(
+            Phone,
+            Request(Phone, Line(shirt)) with { Address = "House 12, Road 5\r\nDhanmondi, Dhaka" });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Place_LineWithoutTheShownPrice_ReturnsBadRequest()
     {
         var shirt = Product("Shirt", 450m);
@@ -406,7 +439,7 @@ public sealed class OrderApiTests : IDisposable
         var product = new Product
         {
             Name = name,
-            Slug = Slugs.From(name),
+            Slug = Slugs.From(name, Slugs.MaxProductSlugLength),
             Price = price,
             CategoryId = 1,
             IsActive = isActive,

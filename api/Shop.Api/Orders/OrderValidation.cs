@@ -1,6 +1,7 @@
 using Shop.Api.Cart;
 using Shop.Api.Domain;
 using Shop.Api.Phone;
+using Shop.Api.Security;
 
 namespace Shop.Api.Orders;
 
@@ -17,7 +18,7 @@ internal static class OrderValidation
         var errors = CartValidation.Validate(new CartQuoteRequest(request.Items));
 
         var name = request.CustomerName?.Trim();
-        if (string.IsNullOrEmpty(name) || name.Length > MaxNameLength)
+        if (string.IsNullOrEmpty(name) || name.Length > MaxNameLength || !TextInput.IsSingleLine(name))
         {
             errors["customerName"] = [$"Enter the name to deliver to, at most {MaxNameLength} characters."];
         }
@@ -28,7 +29,8 @@ internal static class OrderValidation
         }
 
         var address = request.Address?.Trim();
-        if (string.IsNullOrEmpty(address) || address.Length < MinAddressLength || address.Length > MaxAddressLength)
+        if (string.IsNullOrEmpty(address) || address.Length < MinAddressLength || address.Length > MaxAddressLength
+            || !TextInput.IsMultiLine(address))
         {
             errors["address"] =
             [
@@ -41,7 +43,7 @@ internal static class OrderValidation
             errors["deliveryZone"] = ["Choose where the order is delivered: inside or outside Dhaka City."];
         }
 
-        if ((request.Note?.Trim().Length ?? 0) > MaxNoteLength)
+        if ((request.Note?.Trim().Length ?? 0) > MaxNoteLength || !TextInput.IsMultiLine(request.Note))
         {
             errors["note"] = [$"Keep the note to {MaxNoteLength} characters."];
         }

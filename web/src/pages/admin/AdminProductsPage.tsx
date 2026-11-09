@@ -113,6 +113,7 @@ export function AdminProductsPage() {
             type="search"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
+            maxLength={100}
             placeholder="Search by name"
             className={fieldControl}
           />

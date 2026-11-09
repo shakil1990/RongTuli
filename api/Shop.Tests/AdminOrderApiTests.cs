@@ -158,7 +158,7 @@ public sealed class AdminOrderApiTests : IDisposable
         var db = scope.ServiceProvider.GetRequiredService<ShopDbContext>();
         var product = new Product
         {
-            Name = "Shirt", Slug = Slugs.From("Shirt") + Guid.NewGuid().ToString("N")[..6], Price = 450m,
+            Name = "Shirt", Slug = Slugs.From("Shirt", Slugs.MaxProductSlugLength) + Guid.NewGuid().ToString("N")[..6], Price = 450m,
             CategoryId = 1, IsActive = true, CreatedAt = DateTime.UtcNow
         };
         db.Products.Add(product);

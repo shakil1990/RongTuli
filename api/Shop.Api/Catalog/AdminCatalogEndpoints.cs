@@ -37,7 +37,7 @@ public static class AdminCatalogEndpoints
             var category = new Category
             {
                 Name = name,
-                Slug = await Slugs.UniqueAsync(name, slug => db.Categories.AnyAsync(c => c.Slug == slug, ct)),
+                Slug = await Slugs.UniqueAsync(name, Slugs.MaxCategorySlugLength, slug => db.Categories.AnyAsync(c => c.Slug == slug, ct)),
                 SortOrder = request.SortOrder ?? 0
             };
             db.Categories.Add(category);
@@ -108,6 +108,7 @@ public static class AdminCatalogEndpoints
             var pageNumber = page ?? 1;
             var size = pageSize ?? CatalogValidation.DefaultPageSize;
             var errors = CatalogValidation.ValidateListQuery(sort, pageNumber, size);
+            CatalogValidation.ValidateFilters(errors, category, q);
             if (errors.Count > 0)
             {
                 return Results.ValidationProblem(errors);
@@ -133,7 +134,7 @@ public static class AdminCatalogEndpoints
 
             var product = new Product
             {
-                Slug = await Slugs.UniqueAsync(request.Name!.Trim(), slug => db.Products.AnyAsync(p => p.Slug == slug, ct)),
+                Slug = await Slugs.UniqueAsync(request.Name!.Trim(), Slugs.MaxProductSlugLength, slug => db.Products.AnyAsync(p => p.Slug == slug, ct)),
                 CreatedAt = DateTime.UtcNow
             };
             Apply(product, request);

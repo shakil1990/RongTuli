@@ -16,8 +16,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddShopLogging();
 
-// The version banner tells a scanner what to look for and nobody else anything.
-builder.WebHost.ConfigureKestrel(kestrel => kestrel.AddServerHeader = false);
+const long MaxRequestBodyBytes = 64 * 1024;
+
+builder.WebHost.ConfigureKestrel(kestrel =>
+{
+    // The version banner tells a scanner what to look for and nobody else anything.
+    kestrel.AddServerHeader = false;
+
+    // Every request is a small JSON body (images go straight to Cloudinary), and the largest, a
+    // product with a 4,000-character description, is well under this. Kestrel's 30 MB default would
+    // let an anonymous caller make the public cart, order and code endpoints buffer that much each.
+    kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes;
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();

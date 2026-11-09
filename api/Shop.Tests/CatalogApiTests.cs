@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Shop.Api.Catalog;
 using Shop.Api.Data;
@@ -204,6 +205,36 @@ public sealed class CatalogApiTests : IDisposable
         Assert.False(adminGet!.IsActive);
     }
 
+    [Theory]
+    [InlineData("Red\nTee", null)]
+    [InlineData("Red Tee", "M\u0000")]
+    public async Task AdminCreateProduct_ControlCharacterInAName_ReturnsBadRequest(string name, string? size)
+    {
+        var response = await _factory.CreateAdminClient().PostAsJsonAsync(
+            "/api/admin/products",
+            new ProductRequest(name, 1, null, 450m, size is null ? null : [size], null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminListProducts_SearchLongerThan100Characters_ReturnsBadRequest()
+    {
+        var response = await _factory.CreateAdminClient().GetAsync($"/api/admin/products?q={new string('a', 101)}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.Contains("q", problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Products_CategoryLongerThanAnySlug_ReturnsBadRequest()
+    {
+        var response = await _factory.CreateClient().GetAsync($"/api/products?category={new string('a', 101)}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task AdminListProducts_IncludesInactiveAndSearchesByName()
     {
@@ -249,7 +280,7 @@ public sealed class CatalogApiTests : IDisposable
         string name, decimal price, DateTime? createdAt = null, bool isActive = true, int categoryId = 1) => new()
     {
         Name = name,
-        Slug = Slugs.From(name),
+        Slug = Slugs.From(name, Slugs.MaxProductSlugLength),
         Price = price,
         CategoryId = categoryId,
         IsActive = isActive,

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Shop.Api.Catalog;
 using Shop.Api.Domain;
 
 namespace Shop.Api.Data.Configurations;
@@ -11,7 +12,7 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.ToTable("Product");
 
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.Slug).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Slug).HasMaxLength(Slugs.MaxProductSlugLength).IsRequired();
         builder.Property(x => x.Description).HasMaxLength(4000).IsRequired();
         builder.Property(x => x.Price).HasPrecision(12, 2);
 
