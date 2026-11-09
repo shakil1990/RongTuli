@@ -179,6 +179,16 @@ public sealed class CartApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Quote_SizeLongerThanAnyProductOffers_ReturnsBadRequest()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync(
+            "/api/cart/quote",
+            new CartQuoteRequest([new CartQuoteItemRequest(1, new string('X', 21), 1, 100m)]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Quote_TooManyLines_ReturnsBadRequest()
     {
         // One past the 50-line cap in CartValidation.
@@ -195,7 +205,7 @@ public sealed class CartApiTests : IDisposable
     private static Product Product(string name, decimal price, bool isActive = true, int categoryId = 1) => new()
     {
         Name = name,
-        Slug = Slugs.From(name),
+        Slug = Slugs.From(name, Slugs.MaxProductSlugLength),
         Price = price,
         CategoryId = categoryId,
         IsActive = isActive,
