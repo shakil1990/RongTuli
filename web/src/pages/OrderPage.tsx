@@ -14,6 +14,7 @@ import { useVerifiedPhone } from '../phone/useVerifiedPhone'
 import { fetchMyOrder, orderKeys } from '../services/orders'
 import type { Order } from '../types/orders'
 import type { PlacedOrderState } from './CheckoutPage'
+import { usePageTitle } from '../lib/pageTitle'
 
 function readOrderId(value: string | undefined): number | null {
   const id = Number(value)
@@ -107,6 +108,7 @@ function OrderView({ order, justPlaced }: { order: Order; justPlaced: boolean })
 /** The confirmation page after checkout, and where a customer comes back to check the status. */
 export function OrderPage() {
   const id = readOrderId(useParams().id)
+  usePageTitle(id === null ? 'Order' : `Order ${formatOrderNumber(id)}`)
   const state = useLocation().state as Partial<PlacedOrderState> | null
 
   if (id === null) {

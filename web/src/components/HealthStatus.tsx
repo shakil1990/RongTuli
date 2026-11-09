@@ -1,24 +1,20 @@
 import { useApiHealth } from '../lib/useApiHealth'
 
 /**
- * The free API host sleeps when idle, so a cold start can take a while. Saying so in the
- * footer explains the wait instead of leaving the storefront looking broken.
+ * Says so in the footer when the API is down, and stays out of the way otherwise: a healthy
+ * shop needs no status line, and a slow cold start is already explained by `WakingUpNotice`
+ * at the top of the page.
  */
 export function HealthStatus() {
   const { data, isPending, isError } = useApiHealth()
 
-  const isHealthy = !isPending && !isError && data?.status === 'healthy'
-  const label = isPending ? 'waking up…' : isError ? 'unavailable' : (data?.status ?? 'unknown')
+  const isDown = isError || (!isPending && data?.status !== 'healthy')
+  if (!isDown) return null
 
   return (
-    <span className="flex items-center gap-2">
-      <span
-        aria-hidden="true"
-        className={`h-2 w-2 rounded-full ${
-          isPending ? 'animate-pulse bg-warning' : isHealthy ? 'bg-accent' : 'bg-warning'
-        }`}
-      />
-      Shop service: {label}
-    </span>
+    <p role="status" className="flex items-center gap-2">
+      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-warning" />
+      The shop service is unavailable right now. Please try again in a few minutes.
+    </p>
   )
 }

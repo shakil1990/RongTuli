@@ -10,6 +10,7 @@ import { formatOrderDate, formatOrderNumber } from '../lib/orders'
 import { useCustomerCall } from '../phone/useCustomerCall'
 import { useVerifiedPhone } from '../phone/useVerifiedPhone'
 import { fetchMyOrders, orderKeys } from '../services/orders'
+import { usePageTitle } from '../lib/pageTitle'
 
 function OrderList() {
   const { verified } = useVerifiedPhone()
@@ -82,6 +83,7 @@ function OrderList() {
 
 /** A customer's orders, found by re-verifying the phone they were placed with. */
 export function OrdersPage() {
+  usePageTitle('Your orders')
   return (
     <VerifyToContinue
       title="Your orders"

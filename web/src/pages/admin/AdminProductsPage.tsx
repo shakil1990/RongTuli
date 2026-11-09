@@ -17,6 +17,7 @@ import { ApiError } from '../../lib/api'
 import { formatTaka } from '../../lib/format'
 import { adminKeys, fetchAdminProducts, refreshProducts, setProductActive } from '../../services/admin'
 import type { ProductSummary } from '../../types/catalog'
+import { usePageTitle } from '../../lib/pageTitle'
 
 const TOGGLE_FAILED = 'The product could not be updated. Check your connection and try again.'
 
@@ -59,6 +60,7 @@ function StatusToggle({ product, disabled, onToggle }: StatusToggleProps) {
 }
 
 export function AdminProductsPage() {
+  usePageTitle('Products · Admin')
   const call = useAdminCall()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()

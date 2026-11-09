@@ -14,6 +14,7 @@ import {
 import { catalogKeys, fetchCategories } from '../../services/catalog'
 import type { CategoryInput } from '../../types/admin'
 import type { Category } from '../../types/catalog'
+import { usePageTitle } from '../../lib/pageTitle'
 
 const CHANGE_FAILED = 'That did not go through. Check your connection and try again.'
 
@@ -169,6 +170,7 @@ function CategoryRow({ category, onSave, onDelete }: CategoryRowProps) {
 }
 
 export function AdminCategoriesPage() {
+  usePageTitle('Categories · Admin')
   const call = useAdminCall()
   const queryClient = useQueryClient()
   const [name, setName] = useState('')

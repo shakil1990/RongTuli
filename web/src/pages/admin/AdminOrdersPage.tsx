@@ -11,6 +11,7 @@ import { DELIVERY_ZONE_LABELS, formatOrderDate, formatOrderNumber } from '../../
 import { formatPhoneForDisplay } from '../../lib/phone'
 import { fetchAdminOrders, fetchOrderCounts, orderKeys } from '../../services/orders'
 import { ORDER_STATUSES, type OrderStatus } from '../../types/orders'
+import { usePageTitle } from '../../lib/pageTitle'
 
 function readStatus(value: string | null): OrderStatus | undefined {
   return ORDER_STATUSES.find((status) => status === value)
@@ -24,6 +25,7 @@ function readPage(value: string | null): number {
 const FILTER_BASE = `rounded-full px-3 py-1.5 text-sm transition ${focusRing}`
 
 export function AdminOrdersPage() {
+  usePageTitle('Orders · Admin')
   const call = useAdminCall()
   const [searchParams, setSearchParams] = useSearchParams()
   const status = readStatus(searchParams.get('status'))
